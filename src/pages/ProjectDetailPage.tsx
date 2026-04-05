@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
+import { SectionHeading } from '../components/ui/SectionHeading'
 import { EmptyState } from '../components/states/EmptyState'
 import { ErrorState } from '../components/states/ErrorState'
 import { LoadingState } from '../components/states/LoadingState'
@@ -50,7 +51,7 @@ export function ProjectDetailPage() {
   }, [id])
 
   if (loading) {
-    return <LoadingState label="Loading project details..." />
+    return <LoadingState />
   }
 
   if (error) {
@@ -62,11 +63,17 @@ export function ProjectDetailPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <Card>
+    <div className="space-y-5 py-4">
+      <SectionHeading
+        eyebrow="Project Detail"
+        title="Repository record"
+        description="Review metadata, abstract depth, and source document for this project."
+      />
+
+      <Card className="p-6" hover>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-2xl font-semibold text-slate-900">{project.title}</h2>
+            <h2 className="text-2xl font-extrabold text-slate-950">{project.title}</h2>
             <p className="mt-1 text-sm text-slate-600">
               {project.department} | {project.year} | Supervisor: {project.supervisor}
             </p>

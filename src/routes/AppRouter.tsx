@@ -6,10 +6,12 @@ import { useAppSelector } from '../hooks/useAppStore'
 import { AdminUsersPage } from '../pages/AdminUsersPage'
 import { CheckTopicPage } from '../pages/CheckTopicPage'
 import { DashboardPage } from '../pages/DashboardPage'
+import { LandingPage } from '../pages/LandingPage'
 import { LoginPage } from '../pages/LoginPage'
 import { ProjectDetailPage } from '../pages/ProjectDetailPage'
 import { ProjectsPage } from '../pages/ProjectsPage'
 import { RegisterPage } from '../pages/RegisterPage'
+import { SettingsProfilePage } from '../pages/SettingsProfilePage'
 import { UploadProjectPage } from '../pages/UploadProjectPage'
 import { ProtectedRoute } from './ProtectedRoute'
 
@@ -17,7 +19,7 @@ function PublicRoute({ children }: { children: ReactNode }) {
   const { user, initialized } = useAppSelector((state) => state.auth)
 
   if (!initialized) {
-    return <LoadingState label="Preparing application..." />
+    return <LoadingState />
   }
 
   if (user) {
@@ -27,11 +29,26 @@ function PublicRoute({ children }: { children: ReactNode }) {
   return children
 }
 
+function HomeRoute() {
+  const { user, initialized } = useAppSelector((state) => state.auth)
+
+  if (!initialized) {
+    return <LoadingState />
+  }
+
+  if (user) {
+    return <Navigate to="/dashboard" replace />
+  }
+
+  return <LandingPage />
+}
+
 export function AppRouter() {
   useAuthBootstrap()
 
   return (
     <Routes>
+      <Route path="/" element={<HomeRoute />} />
       <Route
         path="/login"
         element={
@@ -53,6 +70,7 @@ export function AppRouter() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/projects" element={<ProjectsPage />} />
         <Route path="/projects/:id" element={<ProjectDetailPage />} />
+        <Route path="/settings" element={<SettingsProfilePage />} />
       </Route>
 
       <Route element={<ProtectedRoute allowedRoles={['student', 'admin']} />}>
@@ -64,8 +82,7 @@ export function AppRouter() {
         <Route path="/admin/users" element={<AdminUsersPage />} />
       </Route>
 
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
 }

@@ -3,6 +3,8 @@ import { Card } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
 import { Textarea } from '../components/ui/Textarea'
 import { Button } from '../components/ui/Button'
+import { Badge } from '../components/ui/Badge'
+import { SectionHeading } from '../components/ui/SectionHeading'
 import { useAppDispatch, useAppSelector } from '../hooks/useAppStore'
 import { runTopicCheckThunk } from '../features/topicChecker/topicCheckerSlice'
 import { parseKeywordInput } from '../utils/parsers'
@@ -28,9 +30,15 @@ export function CheckTopicPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <h2 className="text-xl font-semibold text-slate-900">Semantic topic checker</h2>
+    <div className="space-y-5 py-4">
+      <SectionHeading
+        eyebrow="Topic Intelligence"
+        title="Evaluate originality before committing"
+        description="Use semantic retrieval and grounded AI recommendation to avoid duplicate scope and discover stronger research gaps."
+      />
+
+      <Card className="p-6">
+        <h2 className="text-xl font-extrabold text-slate-950">Semantic topic checker</h2>
         <p className="mt-1 text-sm text-slate-600">
           Compare a new project proposal against previous records using Firestore vector similarity and grounded AI suggestions.
         </p>
@@ -56,7 +64,7 @@ export function CheckTopicPage() {
             onChange={(event) => setKeywordsText(event.target.value)}
           />
 
-          <Button type="submit" disabled={status === 'loading'}>
+          <Button size="lg" type="submit" disabled={status === 'loading'}>
             {status === 'loading' ? 'Checking...' : 'Run topic check'}
           </Button>
         </form>
@@ -68,17 +76,19 @@ export function CheckTopicPage() {
 
       {result ? (
         <>
-          <Card>
-            <h3 className="text-lg font-semibold text-slate-900">Duplication risk</h3>
-            <p className="mt-2 text-sm capitalize text-slate-700">{result.risk}</p>
+          <Card className="p-6">
+            <h3 className="text-lg font-extrabold text-slate-950">Duplication risk</h3>
+            <Badge className="mt-3 inline-flex capitalize" tone={result.risk === 'high' ? 'warning' : result.risk === 'medium' ? 'default' : 'success'}>
+              {result.risk}
+            </Badge>
           </Card>
 
-          <Card>
-            <h3 className="text-lg font-semibold text-slate-900">Similar projects</h3>
+          <Card className="p-6">
+            <h3 className="text-lg font-extrabold text-slate-950">Similar projects</h3>
             <div className="mt-3 space-y-3">
               {result.matches.map((match) => (
-                <div key={match.project.id} className="rounded-lg border border-slate-200 p-3">
-                  <p className="font-medium text-slate-800">{match.project.title}</p>
+                <div key={match.project.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="font-semibold text-slate-900">{match.project.title}</p>
                   <p className="mt-1 text-xs text-slate-500">
                     Similarity score: {(match.similarityScore * 100).toFixed(1)}%
                   </p>
@@ -88,15 +98,15 @@ export function CheckTopicPage() {
             </div>
           </Card>
 
-          <Card>
-            <h3 className="text-lg font-semibold text-slate-900">Gemini grounded recommendation</h3>
+          <Card className="p-6">
+            <h3 className="text-lg font-extrabold text-slate-950">Gemini grounded recommendation</h3>
             <div className="mt-3 space-y-4 text-sm text-slate-700">
               <div>
-                <p className="font-semibold text-slate-900">Novelty assessment</p>
+                <p className="font-bold text-slate-900">Novelty assessment</p>
                 <p>{result.recommendation.noveltyAssessment}</p>
               </div>
               <div>
-                <p className="font-semibold text-slate-900">Overlap explanation</p>
+                <p className="font-bold text-slate-900">Overlap explanation</p>
                 <p>{result.recommendation.overlapExplanation}</p>
               </div>
               <div>

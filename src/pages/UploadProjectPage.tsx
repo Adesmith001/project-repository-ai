@@ -5,6 +5,7 @@ import { Card } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
 import { Select } from '../components/ui/Select'
 import { Textarea } from '../components/ui/Textarea'
+import { SectionHeading } from '../components/ui/SectionHeading'
 import { DEPARTMENTS } from '../lib/constants'
 import { uploadPdfToCloudinary } from '../lib/cloudinary'
 import { createProject, getProjectById, updateProject } from '../features/projects/projectService'
@@ -118,13 +119,15 @@ export function UploadProjectPage() {
   }
 
   return (
-    <Card>
-      <h2 className="text-xl font-semibold text-slate-900">{editingId ? 'Edit project record' : 'Upload new project'}</h2>
-      <p className="mt-1 text-sm text-slate-600">
-        Upload PDF through Cloudinary unsigned preset and save metadata in Firestore.
-      </p>
+    <div className="space-y-5 py-4">
+      <SectionHeading
+        eyebrow="Repository Curation"
+        title={editingId ? 'Edit project record' : 'Upload a new project record'}
+        description="Store high-quality academic metadata and source PDFs for reliable institutional search and similarity analysis."
+      />
 
-      <form className="mt-5 grid gap-4 md:grid-cols-2" onSubmit={onSubmit}>
+      <Card className="p-6">
+      <form className="grid gap-4 md:grid-cols-2" onSubmit={onSubmit}>
         <Input
           label="Project title"
           value={form.title}
@@ -198,7 +201,7 @@ export function UploadProjectPage() {
               type="file"
               accept="application/pdf"
               onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
-              className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+              className="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
             />
           </label>
 
@@ -218,7 +221,7 @@ export function UploadProjectPage() {
         ) : null}
 
         <div className="md:col-span-2 flex gap-2">
-          <Button type="submit" disabled={loading}>
+          <Button size="lg" type="submit" disabled={loading}>
             {loading ? 'Saving...' : editingId ? 'Update project' : 'Create project'}
           </Button>
           <Button type="button" variant="secondary" onClick={() => navigate('/projects')}>
@@ -226,6 +229,7 @@ export function UploadProjectPage() {
           </Button>
         </div>
       </form>
-    </Card>
+      </Card>
+    </div>
   )
 }

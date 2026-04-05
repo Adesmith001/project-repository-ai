@@ -9,7 +9,12 @@ import {
 import type { AppAuthUser, LoginPayload, RegisterPayload } from '../../types'
 import { auth } from '../../lib/firebase'
 
-function mapAuthUser(payload: { uid: string; email: string | null; displayName?: string | null }) {
+function mapAuthUser(payload: {
+  uid: string
+  email: string | null
+  displayName?: string | null
+  photoURL?: string | null
+}) {
   if (!payload.email) {
     throw new Error('User email is missing.')
   }
@@ -18,6 +23,7 @@ function mapAuthUser(payload: { uid: string; email: string | null; displayName?:
     uid: payload.uid,
     email: payload.email,
     displayName: payload.displayName ?? undefined,
+    photoURL: payload.photoURL ?? undefined,
   } satisfies AppAuthUser
 }
 

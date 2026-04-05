@@ -4,6 +4,8 @@ import { Card } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
 import { Select } from '../components/ui/Select'
 import { Button } from '../components/ui/Button'
+import { Badge } from '../components/ui/Badge'
+import { SectionHeading } from '../components/ui/SectionHeading'
 import { EmptyState } from '../components/states/EmptyState'
 import { ErrorState } from '../components/states/ErrorState'
 import { LoadingState } from '../components/states/LoadingState'
@@ -80,10 +82,18 @@ export function ProjectsPage() {
   }, [allProjects])
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <h2 className="text-xl font-semibold text-slate-900">Project repository</h2>
-        <p className="mt-1 text-sm text-slate-600">Browse past projects and analyze overlap with proposed ideas.</p>
+    <div className="space-y-5 py-4">
+      <SectionHeading
+        eyebrow="Repository"
+        title="Explore institutional project intelligence"
+        description="Filter and inspect previous project records before deciding on topic direction."
+      />
+
+      <Card className="p-6">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="text-xl font-extrabold text-slate-950">Project repository</h2>
+          <Badge>{projects.length} visible</Badge>
+        </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-5">
           <Input
@@ -138,7 +148,7 @@ export function ProjectsPage() {
         </div>
       </Card>
 
-      {loading ? <LoadingState label="Loading projects..." /> : null}
+      {loading ? <LoadingState /> : null}
       {error ? <ErrorState message={error} /> : null}
 
       {!loading && !error && projects.length === 0 ? (
@@ -150,10 +160,10 @@ export function ProjectsPage() {
 
       <div className="grid gap-4">
         {projects.map((project) => (
-          <Card key={project.id}>
+          <Card key={project.id} hover>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="space-y-1">
-                <Link to={`/projects/${project.id}`} className="text-lg font-semibold text-slate-900 underline">
+                <Link to={`/projects/${project.id}`} className="text-lg font-extrabold text-slate-950 underline-offset-2 hover:underline">
                   {project.title}
                 </Link>
                 <p className="text-sm text-slate-600">
@@ -164,7 +174,7 @@ export function ProjectsPage() {
               </div>
 
               <div className="flex items-center gap-2">
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium capitalize text-slate-700">
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold capitalize text-slate-700">
                   {project.status}
                 </span>
 

@@ -3,6 +3,8 @@ import { Card } from '../components/ui/Card'
 import { LoadingState } from '../components/states/LoadingState'
 import { ErrorState } from '../components/states/ErrorState'
 import { EmptyState } from '../components/states/EmptyState'
+import { SectionHeading } from '../components/ui/SectionHeading'
+import { Badge } from '../components/ui/Badge'
 import { listUserProfiles } from '../features/auth/profileService'
 import type { UserProfile } from '../types'
 
@@ -40,7 +42,7 @@ export function AdminUsersPage() {
   }, [])
 
   if (loading) {
-    return <LoadingState label="Loading users..." />
+    return <LoadingState />
   }
 
   if (error) {
@@ -52,14 +54,23 @@ export function AdminUsersPage() {
   }
 
   return (
-    <Card>
-      <h2 className="text-xl font-semibold text-slate-900">User administration</h2>
-      <p className="mt-1 text-sm text-slate-600">Roles for students, supervisors, and administrators.</p>
+    <div className="space-y-5 py-4">
+      <SectionHeading
+        eyebrow="Admin"
+        title="User administration"
+        description="Role and profile oversight for students, supervisors, and administrators."
+      />
+
+      <Card className="p-6">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-xl font-extrabold text-slate-950">User directory</h2>
+        <Badge>{users.length} users</Badge>
+      </div>
 
       <div className="mt-4 overflow-x-auto">
         <table className="min-w-full border-collapse text-sm">
           <thead>
-            <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+            <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-[0.14em] text-slate-500">
               <th className="px-3 py-2">Name</th>
               <th className="px-3 py-2">Email</th>
               <th className="px-3 py-2">Department</th>
@@ -78,6 +89,7 @@ export function AdminUsersPage() {
           </tbody>
         </table>
       </div>
-    </Card>
+      </Card>
+    </div>
   )
 }

@@ -5,14 +5,14 @@ import { Input } from '../components/ui/Input'
 import { Select } from '../components/ui/Select'
 import { DEPARTMENTS } from '../lib/constants'
 import { useAppDispatch, useAppSelector } from '../hooks/useAppStore'
-import { registerThunk } from '../features/auth/authSlice'
-import { ensureProfileFromRegisterThunk } from '../features/auth/profileSlice'
+import { googleLoginThunk, registerThunk } from '../features/auth/authSlice'
+import { ensureProfileForAuthUserThunk, ensureProfileFromRegisterThunk } from '../features/auth/profileSlice'
 import type { RegisterPayload } from '../types'
+import { Badge } from '../components/ui/Badge'
 
 const roleOptions = [
   { value: 'student', label: 'Student' },
   { value: 'supervisor', label: 'Supervisor' },
-  { value: 'admin', label: 'Admin' },
 ]
 
 export function RegisterPage() {
@@ -34,6 +34,27 @@ export function RegisterPage() {
     () => DEPARTMENTS.map((item) => ({ value: item, label: item })),
     [],
   )
+
+  async function onGoogleSignup() {
+    setLocalError('')
+
+    try {
+      const authUser = await dispatch(googleLoginThunk()).unwrap()
+
+      await dispatch(
+        ensureProfileForAuthUserThunk({
+          uid: authUser.uid,
+          email: authUser.email,
+          displayName: authUser.displayName,
+          photoURL: authUser.photoURL,
+        }),
+      ).unwrap()
+
+      navigate('/dashboard', { replace: true })
+    } catch (submitError) {
+      setLocalError(submitError instanceof Error ? submitError.message : 'Unable to continue with Google.')
+    }
+  }
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -68,10 +89,20 @@ export function RegisterPage() {
   const isSubmitting = status === 'loading'
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
-      <div className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-        <h1 className="text-2xl font-semibold text-slate-900">Create account</h1>
-        <p className="mt-1 text-sm text-slate-500">Register for Project Repository AI</p>
+    <div className="content-shell flex min-h-screen items-center py-10">
+      <div className="premium-card mx-auto w-full max-w-3xl p-8 sm:p-10">
+        <Badge tone="accent" className="mb-3">Institutional Onboarding</Badge>
+        <h1 className="text-3xl font-extrabold text-slate-950 sm:text-4xl">Create your research workspace profile</h1>
+        <p className="mt-2 text-sm text-slate-600">
+          Admin roles are assigned in the database for governance. New registrations join as Student or Supervisor.
+        </p>
+
+        <div className="mt-6">
+          <Button variant="outline" className="w-full" onClick={() => void onGoogleSignup()} disabled={isSubmitting}>
+            Continue with Google
+          </Button>
+          <p className="mt-3 text-center text-xs uppercase tracking-[0.16em] text-slate-400">or register with email</p>
+        </div>
 
         <form className="mt-6 grid gap-4 sm:grid-cols-2" onSubmit={onSubmit}>
           <Input
@@ -104,7 +135,7 @@ export function RegisterPage() {
             onChange={(event) =>
               setForm((prev) => ({
                 ...prev,
-                role: event.target.value as RegisterPayload['role'],
+                role: event.target.value as Exclude<RegisterPayload['role'], 'admin'>,
               }))
             }
             required
@@ -132,14 +163,14 @@ export function RegisterPage() {
             </p>
           ) : null}
 
-          <Button className="sm:col-span-2" type="submit" disabled={isSubmitting}>
+          <Button className="sm:col-span-2" size="lg" type="submit" disabled={isSubmitting}>
             {isSubmitting ? 'Creating account...' : 'Register'}
           </Button>
         </form>
 
         <p className="mt-5 text-sm text-slate-600">
           Already registered?{' '}
-          <Link to="/login" className="font-medium text-slate-900 underline">
+          <Link to="/login" className="font-semibold text-slate-900 underline">
             Sign in
           </Link>
         </p>

@@ -34,6 +34,7 @@ service cloud.firestore {
         'uid',
         'email',
         'fullName',
+        'photoURL',
         'department',
         'role',
         'createdAt',
@@ -46,6 +47,7 @@ service cloud.firestore {
       && data.fullName is string
       && data.fullName.size() >= 2
       && data.fullName.size() <= 120
+      && (!("photoURL" in data) || data.photoURL is string)
       && data.department is string
       && data.department.size() >= 2
       && data.department.size() <= 120

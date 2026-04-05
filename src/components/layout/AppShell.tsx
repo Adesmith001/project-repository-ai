@@ -10,14 +10,14 @@ interface AppShellProps {
 
 export function AppShell({ profile, children }: AppShellProps) {
   return (
-    <div className="flex min-h-screen bg-slate-100 text-slate-900">
-      <div className="hidden lg:block">
+    <div className="app-shell-grid min-h-screen bg-transparent text-slate-900">
+      <div className="hidden xl:block">
         <Sidebar role={profile.role} />
       </div>
 
-      <div className="flex min-h-screen flex-1 flex-col">
+      <div className="flex min-h-screen flex-col">
         <Topbar profile={profile} />
-        <main className="p-4 sm:p-6">{children}</main>
+        <main className="content-shell pb-10">{children}</main>
       </div>
     </div>
   )

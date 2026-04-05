@@ -14,7 +14,7 @@ export function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
   const { profile, status } = useAppSelector((state) => state.profile)
 
   if (!initialized) {
-    return <LoadingState label="Restoring session..." />
+    return <LoadingState />
   }
 
   if (!user) {
@@ -22,7 +22,7 @@ export function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
   }
 
   if (status === 'loading') {
-    return <LoadingState label="Loading profile..." />
+    return <LoadingState />
   }
 
   const resolvedProfile: UserProfile =
@@ -31,6 +31,7 @@ export function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
       uid: user.uid,
       email: user.email,
       fullName: user.email.split('@')[0] || 'New User',
+      photoURL: user.photoURL,
       department: 'Unassigned',
       role: 'student',
       createdAt: new Date().toISOString(),

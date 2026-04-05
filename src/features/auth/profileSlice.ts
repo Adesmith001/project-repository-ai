@@ -27,6 +27,7 @@ export const ensureProfileFromRegisterThunk = createAsyncThunk(
       uid: payload.uid,
       email: payload.values.email,
       fullName: payload.values.fullName,
+      photoURL: undefined,
       department: payload.values.department,
       role: payload.values.role,
       createdAt: now,
@@ -39,7 +40,7 @@ export const ensureProfileFromRegisterThunk = createAsyncThunk(
 
 export const ensureProfileForAuthUserThunk = createAsyncThunk(
   'profile/ensureAuthUser',
-  async (payload: { uid: string; email: string; displayName?: string }) => {
+  async (payload: { uid: string; email: string; displayName?: string; photoURL?: string }) => {
     const existing = await getUserProfile(payload.uid)
 
     if (existing) {
@@ -53,6 +54,7 @@ export const ensureProfileForAuthUserThunk = createAsyncThunk(
       uid: payload.uid,
       email: payload.email,
       fullName: derivedName,
+      photoURL: payload.photoURL,
       department: 'Unassigned',
       role: 'student',
       createdAt: now,
