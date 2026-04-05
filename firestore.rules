@@ -122,9 +122,11 @@ service cloud.firestore {
       allow list: if isAdmin();
 
       allow create: if isOwner(userId)
-        && request.auth.token.email is string
         && isValidUserProfile(request.resource.data, userId)
-        && request.resource.data.email == request.auth.token.email
+        && (
+          !(request.auth.token.email is string)
+          || request.resource.data.email == request.auth.token.email
+        )
         && request.resource.data.role in ['student', 'supervisor'];
 
       allow update: if (

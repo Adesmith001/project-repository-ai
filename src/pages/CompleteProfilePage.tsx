@@ -10,6 +10,22 @@ import { useAppDispatch, useAppSelector } from '../hooks/useAppStore'
 import { DEPARTMENTS } from '../lib/constants'
 import type { RegisterPayload } from '../types'
 
+function readErrorMessage(value: unknown, fallback: string) {
+  if (value instanceof Error && value.message) {
+    return value.message
+  }
+
+  if (typeof value === 'object' && value !== null && 'message' in value) {
+    const message = (value as { message?: unknown }).message
+
+    if (typeof message === 'string' && message.trim()) {
+      return message
+    }
+  }
+
+  return fallback
+}
+
 const roleOptions: Array<{ value: RegisterPayload['role']; label: string }> = [
   { value: 'student', label: 'Student' },
   { value: 'supervisor', label: 'Supervisor' },
@@ -74,7 +90,7 @@ export function CompleteProfilePage() {
 
       navigate('/dashboard', { replace: true })
     } catch (submitError) {
-      setLocalError(submitError instanceof Error ? submitError.message : 'Unable to save your profile.')
+      setLocalError(readErrorMessage(submitError, 'Unable to save your profile.'))
     }
   }
 
