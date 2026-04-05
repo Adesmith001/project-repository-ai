@@ -24,6 +24,10 @@ export const registerThunk = createAsyncThunk('auth/register', async (payload: R
   return authService.register(payload)
 })
 
+export const googleLoginThunk = createAsyncThunk('auth/googleLogin', async () => {
+  return authService.loginWithGoogle()
+})
+
 export const logoutThunk = createAsyncThunk('auth/logout', async () => {
   await authService.logout()
 })
@@ -67,6 +71,19 @@ const authSlice = createSlice({
       })
       .addCase(registerThunk.rejected, (state, action) => {
         state.error = action.error.message || 'Unable to register.'
+        state.status = 'unauthenticated'
+      })
+      .addCase(googleLoginThunk.pending, (state) => {
+        state.status = 'loading'
+        state.error = null
+      })
+      .addCase(googleLoginThunk.fulfilled, (state, action) => {
+        state.user = action.payload
+        state.status = 'authenticated'
+        state.initialized = true
+      })
+      .addCase(googleLoginThunk.rejected, (state, action) => {
+        state.error = action.error.message || 'Unable to sign in with Google.'
         state.status = 'unauthenticated'
       })
       .addCase(logoutThunk.fulfilled, (state) => {

@@ -1,0 +1,161 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function requesterDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function requesterProfileExists() {
+      return isSignedIn() && requesterDoc().data != null;
+    }
+
+    function isAdmin() {
+      return requesterProfileExists() && requesterDoc().data.role == 'admin';
+    }
+
+    function isValidRole(role) {
+      return role in ['student', 'supervisor', 'admin'];
+    }
+
+    function isValidProjectStatus(status) {
+      return status in ['approved', 'pending', 'rejected'];
+    }
+
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasOnly([
+        'uid',
+        'email',
+        'fullName',
+        'department',
+        'role',
+        'createdAt',
+        'updatedAt'
+      ])
+      && data.uid is string
+      && data.uid == userId
+      && data.email is string
+      && data.email.size() > 3
+      && data.fullName is string
+      && data.fullName.size() >= 2
+      && data.fullName.size() <= 120
+      && data.department is string
+      && data.department.size() >= 2
+      && data.department.size() <= 120
+      && data.role is string
+      && isValidRole(data.role)
+      && data.createdAt is string
+      && data.updatedAt is string;
+    }
+
+    function isValidKeywords(keywords) {
+      return keywords is list
+      && keywords.size() > 0
+      && keywords.size() <= 20
+      && keywords[0] is string;
+    }
+
+    function isValidEmbedding(embedding) {
+      return embedding is list
+      && embedding.size() > 0
+      && embedding.size() <= 4096
+      && embedding[0] is number;
+    }
+
+    function isValidProjectRecord(data) {
+      return data.keys().hasOnly([
+        'title',
+        'abstract',
+        'keywords',
+        'department',
+        'year',
+        'supervisor',
+        'studentName',
+        'fileUrl',
+        'filePublicId',
+        'status',
+        'embedding',
+        'createdAt',
+        'updatedAt'
+      ])
+      && data.title is string
+      && data.title.size() >= 5
+      && data.title.size() <= 300
+      && data.abstract is string
+      && data.abstract.size() >= 20
+      && data.abstract.size() <= 20000
+      && isValidKeywords(data.keywords)
+      && data.department is string
+      && data.department.size() >= 2
+      && data.department.size() <= 120
+      && data.year is int
+      && data.year >= 2000
+      && data.year <= 2100
+      && data.supervisor is string
+      && data.supervisor.size() >= 2
+      && data.supervisor.size() <= 120
+      && data.studentName is string
+      && data.studentName.size() >= 2
+      && data.studentName.size() <= 120
+      && data.fileUrl is string
+      && data.fileUrl.size() > 10
+      && data.filePublicId is string
+      && data.filePublicId.size() > 0
+      && data.status is string
+      && isValidProjectStatus(data.status)
+      && isValidEmbedding(data.embedding)
+      && data.createdAt is string
+      && data.updatedAt is string;
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+
+      allow create: if isOwner(userId)
+        && request.auth.token.email is string
+        && isValidUserProfile(request.resource.data, userId)
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.role in ['student', 'supervisor'];
+
+      allow update: if (
+        isOwner(userId)
+        && isValidUserProfile(request.resource.data, userId)
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.createdAt == resource.data.createdAt
+      ) || (
+        isAdmin()
+        && isValidUserProfile(request.resource.data, userId)
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.email == resource.data.email
+      );
+
+      allow delete: if isAdmin();
+    }
+
+    match /projects/{projectId} {
+      allow get, list: if isSignedIn();
+
+      allow create: if isAdmin() && isValidProjectRecord(request.resource.data);
+
+      allow update: if isAdmin()
+        && isValidProjectRecord(request.resource.data)
+        && request.resource.data.createdAt == resource.data.createdAt;
+
+      allow delete: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -3,6 +3,7 @@ export type UserRole = 'student' | 'supervisor' | 'admin'
 export interface AppAuthUser {
   uid: string
   email: string
+  displayName?: string
 }
 
 export interface UserProfile {

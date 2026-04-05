@@ -1,13 +1,15 @@
 import {
   createUserWithEmailAndPassword,
+  GoogleAuthProvider,
   onAuthStateChanged,
   signInWithEmailAndPassword,
+  signInWithPopup,
   signOut,
 } from 'firebase/auth'
 import type { AppAuthUser, LoginPayload, RegisterPayload } from '../../types'
 import { auth } from '../../lib/firebase'
 
-function mapAuthUser(payload: { uid: string; email: string | null }) {
+function mapAuthUser(payload: { uid: string; email: string | null; displayName?: string | null }) {
   if (!payload.email) {
     throw new Error('User email is missing.')
   }
@@ -15,6 +17,7 @@ function mapAuthUser(payload: { uid: string; email: string | null }) {
   return {
     uid: payload.uid,
     email: payload.email,
+    displayName: payload.displayName ?? undefined,
   } satisfies AppAuthUser
 }
 
@@ -49,6 +52,18 @@ export async function register(payload: RegisterPayload) {
   }
 
   const response = await createUserWithEmailAndPassword(auth, payload.email, payload.password)
+  return mapAuthUser(response.user)
+}
+
+export async function loginWithGoogle() {
+  if (!auth) {
+    throw new Error('Firebase Auth is not configured.')
+  }
+
+  const provider = new GoogleAuthProvider()
+  provider.setCustomParameters({ prompt: 'select_account' })
+
+  const response = await signInWithPopup(auth, provider)
   return mapAuthUser(response.user)
 }
 

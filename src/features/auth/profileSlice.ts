@@ -37,6 +37,32 @@ export const ensureProfileFromRegisterThunk = createAsyncThunk(
   },
 )
 
+export const ensureProfileForAuthUserThunk = createAsyncThunk(
+  'profile/ensureAuthUser',
+  async (payload: { uid: string; email: string; displayName?: string }) => {
+    const existing = await getUserProfile(payload.uid)
+
+    if (existing) {
+      return existing
+    }
+
+    const now = new Date().toISOString()
+    const derivedName = payload.displayName?.trim() || payload.email.split('@')[0] || 'Student User'
+
+    const profile: UserProfile = {
+      uid: payload.uid,
+      email: payload.email,
+      fullName: derivedName,
+      department: 'Unassigned',
+      role: 'student',
+      createdAt: now,
+      updatedAt: now,
+    }
+
+    return saveUserProfile(profile)
+  },
+)
+
 const profileSlice = createSlice({
   name: 'profile',
   initialState,
@@ -65,6 +91,18 @@ const profileSlice = createSlice({
         state.profile = action.payload
         state.status = 'ready'
         state.error = null
+      })
+      .addCase(ensureProfileForAuthUserThunk.pending, (state) => {
+        state.status = 'loading'
+      })
+      .addCase(ensureProfileForAuthUserThunk.fulfilled, (state, action) => {
+        state.profile = action.payload
+        state.status = 'ready'
+        state.error = null
+      })
+      .addCase(ensureProfileForAuthUserThunk.rejected, (state, action) => {
+        state.status = 'error'
+        state.error = action.error.message || 'Unable to prepare user profile.'
       })
   },
 })

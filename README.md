@@ -258,3 +258,10 @@ src/
 - Keep admin role assignment controlled by institution policy.
 - For production, move sensitive AI/upload operations behind trusted server functions.
 - Add Cloudinary signature flow and backend token exchange for hardened deployments.
+
+## Repository Firebase Files
+
+- Firestore rules: `firestore.rules`
+- Firestore composite indexes: `firestore.indexes.json`
+- Firebase config mapping: `firebase.json`
+- Detailed setup and operations guide: `docs/PROJECT_WORKFLOW_AND_SETUP.md`
