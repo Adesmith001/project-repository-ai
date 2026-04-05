@@ -1,5 +1,6 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 import type { RegisterPayload, UserProfile } from '../../types'
+import { DEPARTMENTS } from '../../lib/constants'
 import { getUserProfile, saveUserProfile } from './profileService'
 
 interface ProfileState {
@@ -40,23 +41,39 @@ export const ensureProfileFromRegisterThunk = createAsyncThunk(
 
 export const ensureProfileForAuthUserThunk = createAsyncThunk(
   'profile/ensureAuthUser',
-  async (payload: { uid: string; email: string; displayName?: string; photoURL?: string }) => {
+  async (payload: {
+    uid: string
+    email: string
+    displayName?: string
+    photoURL?: string
+    fullName?: string
+    department?: string
+    role?: RegisterPayload['role']
+  }) => {
     const existing = await getUserProfile(payload.uid)
 
     if (existing) {
       return existing
     }
 
+    if (!payload.department || !payload.role) {
+      throw new Error('Complete your profile by selecting a department and role.')
+    }
+
     const now = new Date().toISOString()
-    const derivedName = payload.displayName?.trim() || payload.email.split('@')[0] || 'Student User'
+    const derivedName =
+      payload.fullName?.trim() ||
+      payload.displayName?.trim() ||
+      payload.email.split('@')[0] ||
+      'Student User'
 
     const profile: UserProfile = {
       uid: payload.uid,
       email: payload.email,
       fullName: derivedName,
       photoURL: payload.photoURL,
-      department: 'Unassigned',
-      role: 'student',
+      department: payload.department || DEPARTMENTS[0],
+      role: payload.role || 'student',
       createdAt: now,
       updatedAt: now,
     }

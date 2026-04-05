@@ -78,10 +78,10 @@ export function Sidebar({ role }: SidebarProps) {
                 to={item.to}
                 className={({ isActive }) =>
                   cn(
-                    'flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition duration-200',
+                    'flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition duration-200',
                     isActive
-                      ? 'bg-slate-950 text-white shadow-sm'
-                      : 'text-slate-700 hover:bg-white hover:shadow-sm',
+                      ? 'bg-white text-slate-950 ring-1 ring-slate-300 shadow-sm'
+                      : 'text-slate-600 hover:bg-white/80 hover:text-slate-900 hover:shadow-sm',
                   )
                 }
               >

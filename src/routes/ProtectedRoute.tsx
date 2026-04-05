@@ -2,7 +2,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { AppShell } from '../components/layout/AppShell'
 import { LoadingState } from '../components/states/LoadingState'
 import { useAppSelector } from '../hooks/useAppStore'
-import type { UserProfile, UserRole } from '../types'
+import type { UserRole } from '../types'
 
 interface ProtectedRouteProps {
   allowedRoles?: UserRole[]
@@ -21,29 +21,20 @@ export function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
     return <Navigate to="/login" replace state={{ from: location }} />
   }
 
-  if (status === 'loading') {
+  if (status === 'idle' || status === 'loading') {
     return <LoadingState />
   }
 
-  const resolvedProfile: UserProfile =
-    profile ||
-    ({
-      uid: user.uid,
-      email: user.email,
-      fullName: user.email.split('@')[0] || 'New User',
-      photoURL: user.photoURL,
-      department: 'Unassigned',
-      role: 'student',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    } satisfies UserProfile)
+  if (!profile) {
+    return <Navigate to="/complete-profile" replace />
+  }
 
-  if (allowedRoles && !allowedRoles.includes(resolvedProfile.role)) {
+  if (allowedRoles && !allowedRoles.includes(profile.role)) {
     return <Navigate to="/dashboard" replace />
   }
 
   return (
-    <AppShell profile={resolvedProfile}>
+    <AppShell profile={profile}>
       <Outlet />
     </AppShell>
   )

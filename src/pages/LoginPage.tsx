@@ -5,6 +5,7 @@ import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { useAppDispatch, useAppSelector } from '../hooks/useAppStore'
 import { googleLoginThunk, loginThunk } from '../features/auth/authSlice'
+import { fetchProfileThunk } from '../features/auth/profileSlice'
 import { Badge } from '../components/ui/Badge'
 
 export function LoginPage() {
@@ -34,8 +35,10 @@ export function LoginPage() {
     setLocalError('')
 
     try {
-      await dispatch(googleLoginThunk()).unwrap()
-      navigate('/dashboard', { replace: true })
+      const authUser = await dispatch(googleLoginThunk()).unwrap()
+      const existingProfile = await dispatch(fetchProfileThunk(authUser.uid)).unwrap()
+
+      navigate(existingProfile ? '/dashboard' : '/complete-profile', { replace: true })
     } catch (submitError) {
       setLocalError(submitError instanceof Error ? submitError.message : 'Unable to sign in with Google.')
     }
@@ -75,6 +78,7 @@ export function LoginPage() {
             <Button variant="outline" className="w-full" onClick={() => void onGoogleSignIn()} disabled={isSubmitting}>
               Continue with Google
             </Button>
+            <p className="text-center text-xs text-slate-500">First-time Google users will complete department and role next.</p>
             <p className="text-center text-xs uppercase tracking-[0.16em] text-slate-400">or sign in with email</p>
           </div>
 

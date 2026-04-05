@@ -8,6 +8,7 @@ import { CheckTopicPage } from '../pages/CheckTopicPage'
 import { DashboardPage } from '../pages/DashboardPage'
 import { LandingPage } from '../pages/LandingPage'
 import { LoginPage } from '../pages/LoginPage'
+import { CompleteProfilePage } from '../pages/CompleteProfilePage'
 import { ProjectDetailPage } from '../pages/ProjectDetailPage'
 import { ProjectsPage } from '../pages/ProjectsPage'
 import { RegisterPage } from '../pages/RegisterPage'
@@ -30,17 +31,21 @@ function PublicRoute({ children }: { children: ReactNode }) {
 }
 
 function HomeRoute() {
+  return <LandingPage />
+}
+
+function AuthOnlyRoute({ children }: { children: ReactNode }) {
   const { user, initialized } = useAppSelector((state) => state.auth)
 
   if (!initialized) {
     return <LoadingState />
   }
 
-  if (user) {
-    return <Navigate to="/dashboard" replace />
+  if (!user) {
+    return <Navigate to="/login" replace />
   }
 
-  return <LandingPage />
+  return children
 }
 
 export function AppRouter() {
@@ -63,6 +68,14 @@ export function AppRouter() {
           <PublicRoute>
             <RegisterPage />
           </PublicRoute>
+        }
+      />
+      <Route
+        path="/complete-profile"
+        element={
+          <AuthOnlyRoute>
+            <CompleteProfilePage />
+          </AuthOnlyRoute>
         }
       />
 

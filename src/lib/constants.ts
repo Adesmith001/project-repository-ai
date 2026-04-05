@@ -1,11 +1,7 @@
 import type { ProjectFilters, UserRole } from '../types'
 
 export const DEPARTMENTS = [
-  'Computer Science',
-  'Information Technology',
-  'Software Engineering',
-  'Electrical Engineering',
-  'Data Science',
+  'Computer and Information Science',
 ]
 
 export const PROJECT_STATUSES = ['approved', 'pending', 'rejected'] as const

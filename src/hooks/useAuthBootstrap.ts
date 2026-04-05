@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { setAuthUser } from '../features/auth/authSlice'
-import { clearProfile, ensureProfileForAuthUserThunk } from '../features/auth/profileSlice'
+import { clearProfile, fetchProfileThunk } from '../features/auth/profileSlice'
 import { subscribeAuthChanges } from '../features/auth/authService'
 import { useAppDispatch } from './useAppStore'
 
@@ -16,14 +16,7 @@ export function useAuthBootstrap() {
         return
       }
 
-      void dispatch(
-        ensureProfileForAuthUserThunk({
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName,
-          photoURL: user.photoURL,
-        }),
-      )
+      void dispatch(fetchProfileThunk(user.uid))
     })
 
     return () => {

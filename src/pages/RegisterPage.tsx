@@ -47,6 +47,9 @@ export function RegisterPage() {
           email: authUser.email,
           displayName: authUser.displayName,
           photoURL: authUser.photoURL,
+          fullName: form.fullName,
+          department: form.department,
+          role: form.role,
         }),
       ).unwrap()
 
