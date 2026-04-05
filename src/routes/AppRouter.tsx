@@ -20,7 +20,7 @@ function PublicRoute({ children }: { children: ReactNode }) {
   const { user, initialized } = useAppSelector((state) => state.auth)
 
   if (!initialized) {
-    return <LoadingState />
+    return <LoadingState fullScreen />
   }
 
   if (user) {
@@ -38,7 +38,7 @@ function AuthOnlyRoute({ children }: { children: ReactNode }) {
   const { user, initialized } = useAppSelector((state) => state.auth)
 
   if (!initialized) {
-    return <LoadingState />
+    return <LoadingState fullScreen />
   }
 
   if (!user) {

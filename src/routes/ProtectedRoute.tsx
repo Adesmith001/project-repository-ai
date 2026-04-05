@@ -14,7 +14,7 @@ export function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
   const { profile, status } = useAppSelector((state) => state.profile)
 
   if (!initialized) {
-    return <LoadingState />
+    return <LoadingState fullScreen />
   }
 
   if (!user) {
@@ -22,7 +22,7 @@ export function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
   }
 
   if (status === 'idle' || status === 'loading') {
-    return <LoadingState />
+    return <LoadingState fullScreen />
   }
 
   if (!profile) {

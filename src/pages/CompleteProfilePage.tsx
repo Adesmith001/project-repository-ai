@@ -48,7 +48,7 @@ export function CompleteProfilePage() {
   )
 
   if (!initialized) {
-    return <LoadingState />
+    return <LoadingState fullScreen />
   }
 
   if (!user) {
