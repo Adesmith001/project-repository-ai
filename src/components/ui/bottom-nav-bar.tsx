@@ -50,7 +50,7 @@ export function BottomNavBar({ className, stickyBottom = false, role }: BottomNa
       role="navigation"
       aria-label="Bottom Navigation"
       className={cn(
-        'flex h-[52px] min-w-[320px] max-w-[95vw] items-center space-x-1 rounded-full border border-slate-200 bg-white/95 p-2 shadow-xl backdrop-blur',
+        'flex h-13 min-w-[320px] max-w-[95vw] items-center space-x-1 rounded-full border border-slate-200 bg-white/95 p-2 shadow-xl backdrop-blur',
         stickyBottom && 'fixed inset-x-0 bottom-4 z-30 mx-auto w-fit',
         className,
       )}
@@ -64,7 +64,7 @@ export function BottomNavBar({ className, stickyBottom = false, role }: BottomNa
             key={item.label}
             whileTap={{ scale: 0.97 }}
             className={cn(
-              'relative flex h-10 min-h-[40px] min-w-[44px] max-h-[44px] items-center gap-0 rounded-full px-3 py-2 transition-colors duration-200',
+              'relative flex h-10 min-h-10 min-w-11 max-h-11 items-center gap-0 rounded-full px-3 py-2 transition-colors duration-200',
               isActive
                 ? 'gap-2 bg-teal-50 text-teal-700'
                 : 'bg-transparent text-slate-500 hover:bg-slate-100',
@@ -88,7 +88,7 @@ export function BottomNavBar({ className, stickyBottom = false, role }: BottomNa
                 opacity: { duration: 0.18 },
                 marginLeft: { duration: 0.18 },
               }}
-              className="flex max-w-[84px] items-center overflow-hidden"
+              className="flex max-w-21 items-center overflow-hidden"
             >
               <span
                 className={cn(
