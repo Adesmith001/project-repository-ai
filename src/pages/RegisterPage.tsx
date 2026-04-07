@@ -1,11 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, Globe } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Select } from '../components/ui/Select'
-import { DEPARTMENTS } from '../lib/constants'
+import { DEFAULT_DEPARTMENT } from '../lib/constants'
 import { useAppDispatch, useAppSelector } from '../hooks/useAppStore'
+import { useDepartments } from '../hooks/useDepartments'
 import { googleLoginThunk, registerThunk } from '../features/auth/authSlice'
 import { ensureProfileForAuthUserThunk, ensureProfileFromRegisterThunk } from '../features/auth/profileSlice'
 import type { RegisterPayload } from '../types'
@@ -21,11 +22,13 @@ export function RegisterPage() {
   const navigate = useNavigate()
   const { status, error } = useAppSelector((state) => state.auth)
 
+  const { departments } = useDepartments()
+
   const [form, setForm] = useState<RegisterPayload>({
     fullName: '',
     email: '',
     password: '',
-    department: DEPARTMENTS[0],
+    department: DEFAULT_DEPARTMENT,
     role: 'student',
   })
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -34,9 +37,17 @@ export function RegisterPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   const departmentOptions = useMemo(
-    () => DEPARTMENTS.map((item) => ({ value: item, label: item })),
-    [],
+    () => departments.map((item) => ({ value: item, label: item })),
+    [departments],
   )
+
+  useEffect(() => {
+    if (departments.length === 0) {
+      return
+    }
+
+    setForm((prev) => (departments.includes(prev.department) ? prev : { ...prev, department: departments[0] }))
+  }, [departments])
 
   async function onGoogleSignup() {
     setLocalError('')

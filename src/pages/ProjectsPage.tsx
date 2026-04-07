@@ -10,8 +10,8 @@ import { SectionHeading } from '../components/ui/SectionHeading'
 import { EmptyState } from '../components/states/EmptyState'
 import { ErrorState } from '../components/states/ErrorState'
 import { LoadingState } from '../components/states/LoadingState'
-import { DEPARTMENTS } from '../lib/constants'
 import { useAppDispatch, useAppSelector } from '../hooks/useAppStore'
+import { useDepartments } from '../hooks/useDepartments'
 import { removeProject, listProjects } from '../features/projects/projectService'
 import { resetProjectFilters, setProjectFilter } from '../features/projects/projectFilterSlice'
 import { formatDate } from '../utils/date'
@@ -21,6 +21,7 @@ export function ProjectsPage() {
   const dispatch = useAppDispatch()
   const filters = useAppSelector((state) => state.projectFilters.filters)
   const profile = useAppSelector((state) => state.profile.profile)
+  const { departments } = useDepartments()
 
   const [projects, setProjects] = useState<ProjectRecord[]>([])
   const [allProjects, setAllProjects] = useState<ProjectRecord[]>([])
@@ -185,7 +186,7 @@ export function ProjectsPage() {
             label="Department"
             options={[
               { value: 'all', label: 'All Departments' },
-              ...DEPARTMENTS.map((item) => ({ value: item, label: item })),
+              ...departments.map((item) => ({ value: item, label: item })),
             ]}
             value={filters.department}
             onChange={(event) => dispatch(setProjectFilter({ key: 'department', value: event.target.value }))}

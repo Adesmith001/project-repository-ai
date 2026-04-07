@@ -175,6 +175,21 @@ service cloud.firestore {
       && data.updatedAt is string;
     }
 
+    function isValidDepartmentRecord(data) {
+      return data.keys().hasOnly([
+        'name',
+        'createdAt',
+        'updatedAt',
+        'createdByUid'
+      ])
+      && data.name is string
+      && data.name.size() >= 2
+      && data.name.size() <= 120
+      && data.createdAt is string
+      && data.updatedAt is string
+      && data.createdByUid is string;
+    }
+
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin() || isSupervisor();
       allow list: if isAdmin() || isSupervisor();
@@ -228,6 +243,20 @@ service cloud.firestore {
         && request.resource.data.createdAt == resource.data.createdAt;
 
       allow delete: if isAdmin() || isSupervisor();
+    }
+
+    match /departments/{departmentId} {
+      allow get, list: if true;
+
+      allow create: if isAdmin()
+        && isValidDepartmentRecord(request.resource.data);
+
+      allow update: if isAdmin()
+        && isValidDepartmentRecord(request.resource.data)
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.createdByUid == resource.data.createdByUid;
+
+      allow delete: if isAdmin();
     }
 
     match /{document=**} {

@@ -7,11 +7,12 @@ import { Input } from '../components/ui/Input'
 import { Select } from '../components/ui/Select'
 import { Textarea } from '../components/ui/Textarea'
 import { SectionHeading } from '../components/ui/SectionHeading'
-import { DEPARTMENTS } from '../lib/constants'
+import { DEFAULT_DEPARTMENT } from '../lib/constants'
 import { uploadPdfToCloudinary } from '../lib/cloudinary'
 import { createProject, getProjectById, updateProject } from '../features/projects/projectService'
 import { listUserProfiles } from '../features/auth/profileService'
 import { useAppSelector } from '../hooks/useAppStore'
+import { useDepartments } from '../hooks/useDepartments'
 import { parseKeywordInput } from '../utils/parsers'
 import type { ProjectInput } from '../types'
 
@@ -23,6 +24,7 @@ const statusOptions = [
 
 export function UploadProjectPage() {
   const profile = useAppSelector((state) => state.profile.profile)
+  const { departments } = useDepartments()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
@@ -32,7 +34,7 @@ export function UploadProjectPage() {
     title: '',
     abstract: '',
     keywords: [],
-    department: DEPARTMENTS[0],
+    department: DEFAULT_DEPARTMENT,
     year: new Date().getFullYear(),
     supervisor: '',
     studentName: '',
@@ -83,6 +85,14 @@ export function UploadProjectPage() {
       mounted = false
     }
   }, [editingId])
+
+  useEffect(() => {
+    if (departments.length === 0) {
+      return
+    }
+
+    setForm((prev) => (departments.includes(prev.department) ? prev : { ...prev, department: departments[0] }))
+  }, [departments])
 
   useEffect(() => {
     let mounted = true
@@ -273,7 +283,7 @@ export function UploadProjectPage() {
 
               <Select
                 label="Department"
-                options={DEPARTMENTS.map((item) => ({ value: item, label: item }))}
+                options={departments.map((item) => ({ value: item, label: item }))}
                 value={form.department}
                 onChange={(event) => setForm((prev) => ({ ...prev, department: event.target.value }))}
               />

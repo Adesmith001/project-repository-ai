@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
@@ -7,7 +7,8 @@ import { LoadingState } from '../components/states/LoadingState'
 import { Select } from '../components/ui/Select'
 import { ensureProfileForAuthUserThunk } from '../features/auth/profileSlice'
 import { useAppDispatch, useAppSelector } from '../hooks/useAppStore'
-import { DEPARTMENTS } from '../lib/constants'
+import { DEFAULT_DEPARTMENT } from '../lib/constants'
+import { useDepartments } from '../hooks/useDepartments'
 import type { RegisterPayload } from '../types'
 
 function readErrorMessage(value: unknown, fallback: string) {
@@ -36,16 +37,25 @@ export function CompleteProfilePage() {
   const navigate = useNavigate()
   const { user, initialized } = useAppSelector((state) => state.auth)
   const { profile, status } = useAppSelector((state) => state.profile)
+  const { departments } = useDepartments()
 
   const [fullName, setFullName] = useState(() => user?.displayName?.trim() || user?.email.split('@')[0] || '')
-  const [department, setDepartment] = useState(DEPARTMENTS[0] || 'Computer and Information Science')
+  const [department, setDepartment] = useState(DEFAULT_DEPARTMENT)
   const [role, setRole] = useState<RegisterPayload['role']>('student')
   const [localError, setLocalError] = useState('')
 
   const departmentOptions = useMemo(
-    () => DEPARTMENTS.map((item) => ({ value: item, label: item })),
-    [],
+    () => departments.map((item) => ({ value: item, label: item })),
+    [departments],
   )
+
+  useEffect(() => {
+    if (departments.length === 0) {
+      return
+    }
+
+    setDepartment((prev) => (departments.includes(prev) ? prev : departments[0]))
+  }, [departments])
 
   if (!initialized) {
     return <LoadingState fullScreen />

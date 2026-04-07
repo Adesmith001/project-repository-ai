@@ -6,10 +6,13 @@ import { ErrorState } from '../components/states/ErrorState'
 import { EmptyState } from '../components/states/EmptyState'
 import { SectionHeading } from '../components/ui/SectionHeading'
 import { Badge } from '../components/ui/Badge'
-import { listUserProfiles, setStudentUploadClearance } from '../features/auth/profileService'
+import { listUserProfiles, setStudentUploadClearance, setUserRole } from '../features/auth/profileService'
+import { createDepartment } from '../features/departments/departmentService'
 import { Button } from '../components/ui/Button'
+import { Input } from '../components/ui/Input'
 import { formatDate } from '../utils/date'
 import { useAppSelector } from '../hooks/useAppStore'
+import { useDepartments } from '../hooks/useDepartments'
 import type { UserProfile } from '../types'
 
 export function AdminUsersPage() {
@@ -20,6 +23,13 @@ export function AdminUsersPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [roleFilter, setRoleFilter] = useState<'all' | UserProfile['role']>('all')
   const [departmentFilter, setDepartmentFilter] = useState('all')
+  const [roleDrafts, setRoleDrafts] = useState<Record<string, UserProfile['role']>>({})
+  const [actionUserId, setActionUserId] = useState<string | null>(null)
+  const [newDepartment, setNewDepartment] = useState('')
+  const [departmentActionError, setDepartmentActionError] = useState('')
+  const [departmentActionInfo, setDepartmentActionInfo] = useState('')
+  const [creatingDepartment, setCreatingDepartment] = useState(false)
+  const { departments, loadingDepartments, refreshDepartments } = useDepartments()
 
   useEffect(() => {
     let mounted = true
@@ -50,8 +60,8 @@ export function AdminUsersPage() {
   }, [])
 
   const departmentOptions = useMemo(() => {
-    return Array.from(new Set(users.map((user) => user.department))).sort((a, b) => a.localeCompare(b))
-  }, [users])
+    return departments
+  }, [departments])
 
   const filteredUsers = useMemo(() => {
     const query = searchTerm.trim().toLowerCase()
@@ -86,6 +96,8 @@ export function AdminUsersPage() {
     }
 
     try {
+      setActionUserId(target.uid)
+
       await setStudentUploadClearance({
         userId: target.uid,
         cleared: !target.uploadCleared,
@@ -109,6 +121,87 @@ export function AdminUsersPage() {
       )
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : 'Unable to update student clearance.')
+    } finally {
+      setActionUserId(null)
+    }
+  }
+
+  async function onAssignRole(target: UserProfile) {
+    if (!profile || profile.role !== 'admin') {
+      return
+    }
+
+    const nextRole = roleDrafts[target.uid] || target.role
+
+    if (nextRole === target.role) {
+      return
+    }
+
+    try {
+      setActionUserId(target.uid)
+
+      await setUserRole({
+        userId: target.uid,
+        role: nextRole,
+        actorUid: profile.uid,
+        actorName: profile.fullName,
+      })
+
+      const now = new Date().toISOString()
+
+      setUsers((prev) =>
+        prev.map((user) =>
+          user.uid === target.uid
+            ? {
+                ...user,
+                role: nextRole,
+                uploadCleared: nextRole === 'student' ? false : true,
+                clearedBySupervisorUid: nextRole === 'student' ? '' : profile.uid,
+                clearedBySupervisorName: nextRole === 'student' ? '' : profile.fullName,
+                clearanceUpdatedAt: now,
+                updatedAt: now,
+              }
+            : user,
+        ),
+      )
+    } catch (assignError) {
+      setError(assignError instanceof Error ? assignError.message : 'Unable to assign role.')
+    } finally {
+      setActionUserId(null)
+    }
+  }
+
+  async function onCreateDepartment(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    if (!profile || profile.role !== 'admin') {
+      return
+    }
+
+    const value = newDepartment.trim().replace(/\s+/g, ' ')
+
+    if (value.length < 2 || value.length > 120) {
+      setDepartmentActionError('Department name must be between 2 and 120 characters.')
+      return
+    }
+
+    try {
+      setCreatingDepartment(true)
+      setDepartmentActionError('')
+      setDepartmentActionInfo('')
+
+      await createDepartment({
+        name: value,
+        actorUid: profile.uid,
+      })
+
+      await refreshDepartments()
+      setNewDepartment('')
+      setDepartmentActionInfo('Department created successfully.')
+    } catch (createError) {
+      setDepartmentActionError(createError instanceof Error ? createError.message : 'Unable to create department.')
+    } finally {
+      setCreatingDepartment(false)
     }
   }
 
@@ -156,6 +249,41 @@ export function AdminUsersPage() {
           <p className="mt-2 text-3xl font-extrabold text-slate-950">{users.filter((user) => user.role === 'admin').length}</p>
         </Card>
       </div>
+
+      {profile?.role === 'admin' ? (
+        <Card className="p-6">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-extrabold text-slate-950">Department management</h2>
+              <p className="mt-1 text-sm text-slate-500">Create additional departments used across onboarding and project records.</p>
+            </div>
+            <Badge>{departments.length} departments</Badge>
+          </div>
+
+          <form className="grid gap-3 md:grid-cols-[1fr_auto]" onSubmit={onCreateDepartment}>
+            <Input
+              label="New department"
+              value={newDepartment}
+              onChange={(event) => setNewDepartment(event.target.value)}
+              placeholder="e.g. Electrical Engineering"
+              required
+            />
+            <div className="flex items-end">
+              <Button type="submit" size="lg" disabled={creatingDepartment || loadingDepartments}>
+                {creatingDepartment ? 'Creating...' : 'Create department'}
+              </Button>
+            </div>
+          </form>
+
+          {departmentActionError ? (
+            <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{departmentActionError}</p>
+          ) : null}
+
+          {departmentActionInfo ? (
+            <p className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">{departmentActionInfo}</p>
+          ) : null}
+        </Card>
+      ) : null}
 
       <Card className="overflow-hidden p-0" hover>
         <div className="border-b border-slate-200 px-5 py-4">
@@ -233,6 +361,7 @@ export function AdminUsersPage() {
                   <th>Role</th>
                   <th>Upload Clearance</th>
                   <th>Joined</th>
+                  <th>Role Assignment</th>
                   <th>Action</th>
                 </tr>
               </thead>
@@ -263,10 +392,47 @@ export function AdminUsersPage() {
                     </td>
                     <td>{formatDate(user.createdAt)}</td>
                     <td>
+                      {profile?.role === 'admin' ? (
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={roleDrafts[user.uid] || user.role}
+                            onChange={(event) =>
+                              setRoleDrafts((prev) => ({
+                                ...prev,
+                                [user.uid]: event.target.value as UserProfile['role'],
+                              }))
+                            }
+                            className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none"
+                            disabled={actionUserId === user.uid || profile.uid === user.uid}
+                          >
+                            <option value="student">Student</option>
+                            <option value="supervisor">Supervisor</option>
+                            <option value="admin">Admin</option>
+                          </select>
+
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => void onAssignRole(user)}
+                            disabled={
+                              actionUserId === user.uid
+                              || profile.uid === user.uid
+                              || (roleDrafts[user.uid] || user.role) === user.role
+                            }
+                          >
+                            Save
+                          </Button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-500">Admin only</span>
+                      )}
+                    </td>
+                    <td>
                       {user.role === 'student' ? (
                         <Button
                           size="sm"
                           variant={user.uploadCleared ? 'secondary' : 'outline'}
+                          disabled={actionUserId === user.uid}
                           onClick={() => void onToggleStudentClearance(user)}
                         >
                           {user.uploadCleared ? 'Revoke' : 'Clear'}
@@ -280,7 +446,7 @@ export function AdminUsersPage() {
 
                 {filteredUsers.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center text-sm text-slate-500">No users match the current filters.</td>
+                    <td colSpan={8} className="text-center text-sm text-slate-500">No users match the current filters.</td>
                   </tr>
                 ) : null}
               </tbody>

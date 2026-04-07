@@ -1,7 +1,7 @@
 import { FirebaseError } from 'firebase/app'
 import { collection, doc, getDoc, getDocs, setDoc, updateDoc } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
-import type { UserProfile } from '../../types'
+import type { UserProfile, UserRole } from '../../types'
 
 function getUsersCollection() {
   if (!db) {
@@ -79,6 +79,28 @@ export async function setStudentUploadClearance(payload: {
     uploadCleared: payload.cleared,
     clearedBySupervisorUid: payload.cleared ? payload.actorUid : '',
     clearedBySupervisorName: payload.cleared ? payload.actorName : '',
+    clearanceUpdatedAt: now,
+    updatedAt: now,
+  })
+}
+
+export async function setUserRole(payload: {
+  userId: string
+  role: UserRole
+  actorUid: string
+  actorName: string
+}) {
+  if (!db) {
+    throw new Error('Firestore is not configured.')
+  }
+
+  const now = new Date().toISOString()
+
+  await updateDoc(doc(db, 'users', payload.userId), {
+    role: payload.role,
+    uploadCleared: payload.role === 'student' ? false : true,
+    clearedBySupervisorUid: payload.role === 'student' ? '' : payload.actorUid,
+    clearedBySupervisorName: payload.role === 'student' ? '' : payload.actorName,
     clearanceUpdatedAt: now,
     updatedAt: now,
   })
