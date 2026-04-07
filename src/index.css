@@ -115,6 +115,48 @@ a {
   border: 1px solid rgba(15, 118, 110, 0.22);
 }
 
+.control-strip {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.control-strip-4 {
+  grid-template-columns: 1.4fr repeat(3, minmax(0, 0.8fr));
+}
+
+.table-shell {
+  overflow-x: auto;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+}
+
+.table-ui {
+  width: 100%;
+  min-width: 920px;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.table-ui thead {
+  background: #f8fafc;
+}
+
+.table-ui th {
+  text-align: left;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #64748b;
+  font-weight: 600;
+  padding: 0.75rem 1rem;
+}
+
+.table-ui td {
+  border-top: 1px solid #f1f5f9;
+  padding: 0.75rem 1rem;
+  color: #334155;
+}
+
 .auth-stage {
   min-height: 100vh;
   display: flex;
@@ -249,6 +291,10 @@ a {
 
   .auth-showcase {
     min-height: 300px;
+  }
+
+  .control-strip-4 {
+    grid-template-columns: 1fr;
   }
 }
 

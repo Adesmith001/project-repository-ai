@@ -229,39 +229,68 @@ export function ProjectsPage() {
         />
       ) : null}
 
-      <div className="grid gap-4">
-        {projects.map((project) => (
-          <Card key={project.id} hover>
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="space-y-1.5">
-                <Link to={`/projects/${project.id}`} className="text-lg font-extrabold text-slate-950 underline-offset-2 hover:underline">
-                  {project.title}
-                </Link>
-                <p className="text-sm text-slate-600">
-                  {project.department} | {project.year} | {project.supervisor}
-                </p>
-                <p className="line-clamp-2 text-sm text-slate-700">{project.abstract}</p>
-                <p className="text-xs text-slate-500">Updated {formatDate(project.updatedAt)}</p>
-              </div>
+      {!loading && !error && projects.length > 0 ? (
+        <Card className="overflow-hidden p-0" hover>
+          <div className="border-b border-slate-200 px-5 py-4">
+            <h3 className="text-lg font-extrabold text-slate-950">Repository records</h3>
+            <p className="mt-1 text-sm text-slate-500">Detailed list view for scanning titles, ownership, and review state.</p>
+          </div>
 
-              <div className="flex items-center gap-2 self-start">
-                <Badge tone={statusMeta[project.status].tone}>{statusMeta[project.status].label}</Badge>
-
-                {profile?.role === 'admin' ? (
-                  <>
-                    <Link to={`/upload-project?edit=${project.id}`}>
-                      <Button size="sm" variant="secondary">Edit</Button>
-                    </Link>
-                    <Button size="sm" variant="danger" onClick={() => void onDelete(project.id)}>
-                      Delete
-                    </Button>
-                  </>
-                ) : null}
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
+          <div className="table-shell">
+            <table className="table-ui">
+              <thead>
+                <tr>
+                  <th>Project ID</th>
+                  <th>Title</th>
+                  <th>Supervisor</th>
+                  <th>Year</th>
+                  <th>Status</th>
+                  <th>Updated</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {projects.map((project) => (
+                  <tr key={project.id}>
+                    <td className="text-xs text-slate-500">{project.id.slice(0, 8)}</td>
+                    <td>
+                      <div>
+                        <Link to={`/projects/${project.id}`} className="font-semibold text-slate-900 underline-offset-2 hover:underline">
+                          {project.title}
+                        </Link>
+                        <p className="mt-0.5 text-xs text-slate-500">{project.department} | {project.studentName}</p>
+                      </div>
+                    </td>
+                    <td>{project.supervisor}</td>
+                    <td>{project.year}</td>
+                    <td>
+                      <Badge tone={statusMeta[project.status].tone}>{statusMeta[project.status].label}</Badge>
+                    </td>
+                    <td>{formatDate(project.updatedAt)}</td>
+                    <td>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Link to={`/projects/${project.id}`}>
+                          <Button size="sm" variant="outline">Open</Button>
+                        </Link>
+                        {profile?.role === 'admin' ? (
+                          <>
+                            <Link to={`/upload-project?edit=${project.id}`}>
+                              <Button size="sm" variant="secondary">Edit</Button>
+                            </Link>
+                            <Button size="sm" variant="danger" onClick={() => void onDelete(project.id)}>
+                              Delete
+                            </Button>
+                          </>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      ) : null}
     </div>
   )
 }
