@@ -1,5 +1,5 @@
 import { FirebaseError } from 'firebase/app'
-import { collection, doc, getDoc, getDocs, setDoc } from 'firebase/firestore'
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
 import type { UserProfile } from '../../types'
 
@@ -61,4 +61,25 @@ export async function listUserProfiles() {
   const snapshot = await getDocs(getUsersCollection())
 
   return snapshot.docs.map((item) => item.data() as UserProfile)
+}
+
+export async function setStudentUploadClearance(payload: {
+  userId: string
+  cleared: boolean
+  actorUid: string
+  actorName: string
+}) {
+  if (!db) {
+    throw new Error('Firestore is not configured.')
+  }
+
+  const now = new Date().toISOString()
+
+  await updateDoc(doc(db, 'users', payload.userId), {
+    uploadCleared: payload.cleared,
+    clearedBySupervisorUid: payload.cleared ? payload.actorUid : '',
+    clearedBySupervisorName: payload.cleared ? payload.actorName : '',
+    clearanceUpdatedAt: now,
+    updatedAt: now,
+  })
 }

@@ -6,12 +6,14 @@ import { ErrorState } from '../components/states/ErrorState'
 import { EmptyState } from '../components/states/EmptyState'
 import { SectionHeading } from '../components/ui/SectionHeading'
 import { Badge } from '../components/ui/Badge'
-import { listUserProfiles } from '../features/auth/profileService'
+import { listUserProfiles, setStudentUploadClearance } from '../features/auth/profileService'
 import { Button } from '../components/ui/Button'
 import { formatDate } from '../utils/date'
+import { useAppSelector } from '../hooks/useAppStore'
 import type { UserProfile } from '../types'
 
 export function AdminUsersPage() {
+  const profile = useAppSelector((state) => state.profile.profile)
   const [users, setUsers] = useState<UserProfile[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -76,6 +78,38 @@ export function AdminUsersPage() {
     student: 'default',
     supervisor: 'accent',
     admin: 'success',
+  }
+
+  async function onToggleStudentClearance(target: UserProfile) {
+    if (!profile || (profile.role !== 'admin' && profile.role !== 'supervisor')) {
+      return
+    }
+
+    try {
+      await setStudentUploadClearance({
+        userId: target.uid,
+        cleared: !target.uploadCleared,
+        actorUid: profile.uid,
+        actorName: profile.fullName,
+      })
+
+      setUsers((prev) =>
+        prev.map((user) =>
+          user.uid === target.uid
+            ? {
+                ...user,
+                uploadCleared: !target.uploadCleared,
+                clearedBySupervisorUid: !target.uploadCleared ? profile.uid : '',
+                clearedBySupervisorName: !target.uploadCleared ? profile.fullName : '',
+                clearanceUpdatedAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              }
+            : user,
+        ),
+      )
+    } catch (updateError) {
+      setError(updateError instanceof Error ? updateError.message : 'Unable to update student clearance.')
+    }
   }
 
   if (loading) {
@@ -197,7 +231,9 @@ export function AdminUsersPage() {
                   <th>Email</th>
                   <th>Department</th>
                   <th>Role</th>
+                  <th>Upload Clearance</th>
                   <th>Joined</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -216,13 +252,35 @@ export function AdminUsersPage() {
                     <td>
                       <Badge tone={roleTone[user.role]} className="capitalize">{user.role}</Badge>
                     </td>
+                    <td>
+                      {user.role === 'student' ? (
+                        <Badge tone={user.uploadCleared ? 'success' : 'warning'}>
+                          {user.uploadCleared ? 'Cleared' : 'Pending clearance'}
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-slate-500">Not required</span>
+                      )}
+                    </td>
                     <td>{formatDate(user.createdAt)}</td>
+                    <td>
+                      {user.role === 'student' ? (
+                        <Button
+                          size="sm"
+                          variant={user.uploadCleared ? 'secondary' : 'outline'}
+                          onClick={() => void onToggleStudentClearance(user)}
+                        >
+                          {user.uploadCleared ? 'Revoke' : 'Clear'}
+                        </Button>
+                      ) : (
+                        <span className="text-xs text-slate-500">-</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
 
                 {filteredUsers.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="text-center text-sm text-slate-500">No users match the current filters.</td>
+                    <td colSpan={7} className="text-center text-sm text-slate-500">No users match the current filters.</td>
                   </tr>
                 ) : null}
               </tbody>

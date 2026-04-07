@@ -33,7 +33,7 @@ const navItems: NavItem[] = [
     to: '/check-topic',
     label: 'Topic Checker',
     icon: FileSearch,
-    roles: ['student', 'admin'],
+    roles: ['student', 'supervisor', 'admin'],
   },
   {
     to: '/settings',
@@ -45,13 +45,13 @@ const navItems: NavItem[] = [
     to: '/upload-project',
     label: 'Upload Project',
     icon: UploadCloud,
-    roles: ['admin'],
+    roles: ['student', 'supervisor', 'admin'],
   },
   {
     to: '/admin/users',
     label: 'Manage Users',
     icon: Users,
-    roles: ['admin'],
+    roles: ['supervisor', 'admin'],
   },
 ]
 

@@ -10,6 +10,8 @@ import { SectionHeading } from '../components/ui/SectionHeading'
 import { DEPARTMENTS } from '../lib/constants'
 import { uploadPdfToCloudinary } from '../lib/cloudinary'
 import { createProject, getProjectById, updateProject } from '../features/projects/projectService'
+import { listUserProfiles } from '../features/auth/profileService'
+import { useAppSelector } from '../hooks/useAppStore'
 import { parseKeywordInput } from '../utils/parsers'
 import type { ProjectInput } from '../types'
 
@@ -20,6 +22,7 @@ const statusOptions = [
 ]
 
 export function UploadProjectPage() {
+  const profile = useAppSelector((state) => state.profile.profile)
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
 
@@ -42,6 +45,8 @@ export function UploadProjectPage() {
   const [uploadProgress, setUploadProgress] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [supervisorOptions, setSupervisorOptions] = useState<Array<{ value: string; label: string }>>([])
+  const [loadingSupervisors, setLoadingSupervisors] = useState(true)
 
   useEffect(() => {
     let mounted = true
@@ -79,16 +84,59 @@ export function UploadProjectPage() {
     }
   }, [editingId])
 
+  useEffect(() => {
+    let mounted = true
+
+    async function loadSupervisors() {
+      try {
+        const users = await listUserProfiles()
+        const supervisors = users
+          .filter((user) => user.role === 'supervisor')
+          .map((user) => ({ value: user.fullName, label: user.fullName }))
+
+        if (mounted) {
+          setSupervisorOptions(supervisors)
+
+          if (supervisors.length > 0) {
+            setForm((prev) => (prev.supervisor.trim() ? prev : { ...prev, supervisor: supervisors[0].value }))
+          }
+        }
+      } catch {
+        if (mounted) {
+          setSupervisorOptions([])
+        }
+      } finally {
+        if (mounted) {
+          setLoadingSupervisors(false)
+        }
+      }
+    }
+
+    void loadSupervisors()
+
+    return () => {
+      mounted = false
+    }
+  }, [])
+
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError('')
     setLoading(true)
 
     try {
+      if (profile?.role === 'student' && !profile.uploadCleared) {
+        throw new Error('You can upload only after your supervisor/admin clears you.')
+      }
+
       const keywords = parseKeywordInput(keywordText)
       const payload: ProjectInput = {
         ...form,
         keywords,
+      }
+
+      if (profile?.role === 'student') {
+        payload.status = 'pending'
       }
 
       if (selectedFile) {
@@ -126,6 +174,12 @@ export function UploadProjectPage() {
         title={editingId ? 'Edit project record' : 'Upload a new project record'}
         description="Store high-quality academic metadata and source PDFs for reliable institutional search and similarity analysis."
       />
+
+      {profile?.role === 'student' && !profile.uploadCleared ? (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          You are currently pending supervisor/admin clearance. Upload is enabled once you are cleared.
+        </p>
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card className="p-5" hover>
@@ -180,12 +234,32 @@ export function UploadProjectPage() {
                 required
               />
 
-              <Input
-                label="Supervisor"
-                value={form.supervisor}
-                onChange={(event) => setForm((prev) => ({ ...prev, supervisor: event.target.value }))}
-                required
-              />
+              {loadingSupervisors ? (
+                <Input
+                  label="Supervisor"
+                  value={form.supervisor}
+                  onChange={(event) => setForm((prev) => ({ ...prev, supervisor: event.target.value }))}
+                  placeholder="Loading supervisors..."
+                  disabled
+                  required
+                />
+              ) : supervisorOptions.length > 0 ? (
+                <Select
+                  label="Supervisor"
+                  options={supervisorOptions}
+                  value={form.supervisor}
+                  onChange={(event) => setForm((prev) => ({ ...prev, supervisor: event.target.value }))}
+                  required
+                />
+              ) : (
+                <Input
+                  label="Supervisor"
+                  value={form.supervisor}
+                  onChange={(event) => setForm((prev) => ({ ...prev, supervisor: event.target.value }))}
+                  placeholder="No supervisor accounts found, type name manually"
+                  required
+                />
+              )}
 
               <Input
                 label="Year"
@@ -204,17 +278,21 @@ export function UploadProjectPage() {
                 onChange={(event) => setForm((prev) => ({ ...prev, department: event.target.value }))}
               />
 
-              <Select
-                label="Status"
-                options={statusOptions}
-                value={form.status}
-                onChange={(event) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    status: event.target.value as ProjectInput['status'],
-                  }))
-                }
-              />
+              {profile?.role === 'student' ? (
+                <Input label="Status" value="pending" disabled />
+              ) : (
+                <Select
+                  label="Status"
+                  options={statusOptions}
+                  value={form.status}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      status: event.target.value as ProjectInput['status'],
+                    }))
+                  }
+                />
+              )}
             </div>
           </div>
 
@@ -269,7 +347,7 @@ export function UploadProjectPage() {
           ) : null}
 
           <div className="flex flex-wrap gap-2">
-            <Button size="lg" type="submit" disabled={loading}>
+            <Button size="lg" type="submit" disabled={loading || (profile?.role === 'student' && !profile.uploadCleared)}>
               {loading ? 'Saving...' : editingId ? 'Update project' : 'Create project'}
             </Button>
             <Button type="button" variant="secondary" onClick={() => navigate('/projects')}>

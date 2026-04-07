@@ -86,12 +86,15 @@ export function AppRouter() {
         <Route path="/settings" element={<SettingsProfilePage />} />
       </Route>
 
-      <Route element={<ProtectedRoute allowedRoles={['student', 'admin']} />}>
+      <Route element={<ProtectedRoute allowedRoles={['student', 'supervisor', 'admin']} />}>
         <Route path="/check-topic" element={<CheckTopicPage />} />
       </Route>
 
-      <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+      <Route element={<ProtectedRoute allowedRoles={['student', 'supervisor', 'admin']} />}>
         <Route path="/upload-project" element={<UploadProjectPage />} />
+      </Route>
+
+      <Route element={<ProtectedRoute allowedRoles={['admin', 'supervisor']} />}>
         <Route path="/admin/users" element={<AdminUsersPage />} />
       </Route>
 

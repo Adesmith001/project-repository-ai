@@ -14,6 +14,10 @@ export interface UserProfile {
   photoURL?: string
   department: string
   role: UserRole
+  uploadCleared: boolean
+  clearedBySupervisorUid: string
+  clearedBySupervisorName: string
+  clearanceUpdatedAt: string
   createdAt: string
   updatedAt: string
 }

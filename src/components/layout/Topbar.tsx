@@ -8,10 +8,10 @@ export function Topbar({ profile }: { profile: UserProfile | null }) {
   const quickLinks = [
     { to: '/dashboard', label: 'Dashboard', roles: ['student', 'supervisor', 'admin'] },
     { to: '/projects', label: 'Repository', roles: ['student', 'supervisor', 'admin'] },
-    { to: '/check-topic', label: 'Topic Checker', roles: ['student', 'admin'] },
+    { to: '/check-topic', label: 'Topic Checker', roles: ['student', 'supervisor', 'admin'] },
     { to: '/settings', label: 'Settings', roles: ['student', 'supervisor', 'admin'] },
-    { to: '/upload-project', label: 'Upload', roles: ['admin'] },
-    { to: '/admin/users', label: 'Users', roles: ['admin'] },
+    { to: '/upload-project', label: 'Upload', roles: ['student', 'supervisor', 'admin'] },
+    { to: '/admin/users', label: 'Users', roles: ['supervisor', 'admin'] },
   ].filter((item) => (role ? item.roles.includes(role) : false))
 
   return (
