@@ -1,7 +1,9 @@
-import { BookOpen, FileSearch, FolderOpenDot, LayoutDashboard, Settings, UploadCloud, Users } from 'lucide-react'
+import { FileSearch, FolderOpenDot, LayoutDashboard, LogOut, Settings, UploadCloud, Users } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import type { UserRole } from '../../types'
 import { cn } from '../../utils/cn'
+import { useAppDispatch } from '../../hooks/useAppStore'
+import { logoutThunk } from '../../features/auth/authSlice'
 
 interface SidebarProps {
   role: UserRole
@@ -54,22 +56,29 @@ const navItems: NavItem[] = [
 ]
 
 export function Sidebar({ role }: SidebarProps) {
+  const dispatch = useAppDispatch()
+
+  const visibleItems = navItems.filter((item) => item.roles.includes(role))
+
+  const coreItems = visibleItems.filter((item) => item.to === '/dashboard' || item.to === '/projects' || item.to === '/check-topic')
+  const adminItems = visibleItems.filter((item) => item.to === '/upload-project' || item.to === '/admin/users')
+
   return (
-    <aside className="ink-panel m-4 flex h-[calc(100vh-2rem)] w-68 flex-col rounded-3xl p-4 text-slate-200 shadow-[0_26px_56px_rgba(15,23,42,0.32)]">
-      <div className="mb-8 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-3.5">
-        <div className="rounded-xl bg-linear-to-br from-teal-500 to-cyan-400 p-2 text-slate-950">
-          <BookOpen size={18} />
+    <aside className="m-4 flex h-[calc(100vh-2rem)] w-64 flex-col rounded-[28px] border border-slate-200 bg-white p-4 shadow-[0_20px_48px_rgba(15,23,42,0.08)]">
+      <div className="mb-6 px-2">
+        <div className="mb-1 flex items-center gap-2">
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-linear-to-br from-blue-600 to-cyan-500 text-xs font-bold text-white">
+            AI
+          </span>
+          <p className="brand-wordmark text-lg text-slate-900">AI REPO</p>
         </div>
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Research Platform</p>
-          <p className="brand-wordmark text-lg text-white">AI REPO</p>
-        </div>
+        <p className="text-xs text-slate-500">Research management workspace</p>
       </div>
 
-      <nav className="space-y-1">
-        {navItems
-          .filter((item) => item.roles.includes(role))
-          .map((item) => {
+      <div className="space-y-2">
+        <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Workspace</p>
+        <nav className="space-y-1">
+          {coreItems.map((item) => {
             const Icon = item.icon
 
             return (
@@ -78,10 +87,10 @@ export function Sidebar({ role }: SidebarProps) {
                 to={item.to}
                 className={({ isActive }) =>
                   cn(
-                    'flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition duration-200',
+                    'flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-sm font-medium transition duration-200',
                     isActive
-                      ? 'bg-white/12 text-white ring-1 ring-teal-300/50 shadow-sm'
-                      : 'text-slate-300 hover:bg-white/8 hover:text-white',
+                      ? 'border-blue-100 bg-blue-50 text-blue-700'
+                      : 'border-transparent text-slate-600 hover:border-slate-200 hover:bg-slate-50 hover:text-slate-900',
                   )
                 }
               >
@@ -90,11 +99,64 @@ export function Sidebar({ role }: SidebarProps) {
               </NavLink>
             )
           })}
-      </nav>
+        </nav>
+      </div>
 
-      <div className="mt-auto rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-slate-300">
-        <p className="font-semibold text-slate-100">Uniform design system active</p>
-        <p className="mt-1">AI REPO workspace for discovery, originality, and governance.</p>
+      {adminItems.length > 0 ? (
+        <div className="mt-4 space-y-2">
+          <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Administration</p>
+          <nav className="space-y-1">
+            {adminItems.map((item) => {
+              const Icon = item.icon
+
+              return (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={({ isActive }) =>
+                    cn(
+                      'flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-sm font-medium transition duration-200',
+                      isActive
+                        ? 'border-blue-100 bg-blue-50 text-blue-700'
+                        : 'border-transparent text-slate-600 hover:border-slate-200 hover:bg-slate-50 hover:text-slate-900',
+                    )
+                  }
+                >
+                  <Icon size={16} />
+                  <span>{item.label}</span>
+                </NavLink>
+              )
+            })}
+          </nav>
+        </div>
+      ) : null}
+
+      <div className="mt-auto space-y-1 border-t border-slate-200 pt-4">
+        <NavLink
+          to="/settings"
+          className={({ isActive }) =>
+            cn(
+              'flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-sm font-medium transition duration-200',
+              isActive
+                ? 'border-blue-100 bg-blue-50 text-blue-700'
+                : 'border-transparent text-slate-600 hover:border-slate-200 hover:bg-slate-50 hover:text-slate-900',
+            )
+          }
+        >
+          <Settings size={16} />
+          <span>Settings</span>
+        </NavLink>
+
+        <button
+          type="button"
+          onClick={() => {
+            void dispatch(logoutThunk())
+          }}
+          className="flex w-full items-center gap-2.5 rounded-xl border border-transparent px-3 py-2.5 text-sm font-medium text-slate-600 transition hover:border-slate-200 hover:bg-slate-50 hover:text-slate-900"
+        >
+          <LogOut size={16} />
+          <span>Log out</span>
+        </button>
       </div>
     </aside>
   )

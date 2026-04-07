@@ -1,11 +1,8 @@
-import { LogOut, Search, User2 } from 'lucide-react'
+import { Bell, ChevronDown, Search, User2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { useAppDispatch } from '../../hooks/useAppStore'
-import { logoutThunk } from '../../features/auth/authSlice'
 import type { UserProfile } from '../../types'
 
 export function Topbar({ profile }: { profile: UserProfile | null }) {
-  const dispatch = useAppDispatch()
   const role = profile?.role
 
   const quickLinks = [
@@ -18,27 +15,27 @@ export function Topbar({ profile }: { profile: UserProfile | null }) {
   ].filter((item) => (role ? item.roles.includes(role) : false))
 
   return (
-    <header className="sticky top-0 z-20 px-4 py-4 sm:px-6">
-      <div className="frosted-surface flex items-center justify-between gap-3 rounded-2xl px-4 py-3">
-        <div className="flex items-center gap-3">
-          <span className="brand-dot" aria-hidden="true"></span>
-          <div>
-            <h1 className="brand-wordmark text-lg text-slate-900">AI REPO</h1>
-            <p className="text-xs text-slate-500">Command center for project intelligence</p>
-          </div>
+    <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/96 px-4 py-3 backdrop-blur sm:px-6">
+      <div className="flex items-center gap-3">
+        <div className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 lg:flex">
+          <Search size={15} className="text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search projects, topics, supervisors"
+            className="w-72 border-none bg-transparent text-xs text-slate-700 outline-none placeholder:text-slate-400"
+          />
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 lg:flex">
-            <Search size={15} className="text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search projects, topics, supervisors"
-              className="w-64 border-none bg-transparent text-xs text-slate-700 outline-none placeholder:text-slate-400"
-            />
-          </div>
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            type="button"
+            className="grid h-9 w-9 place-items-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:text-slate-800"
+            aria-label="Notifications"
+          >
+            <Bell size={15} />
+          </button>
 
-          <div className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 md:flex">
+          <div className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 md:flex">
             {profile?.photoURL ? (
               <img
                 src={profile.photoURL}
@@ -51,25 +48,15 @@ export function Topbar({ profile }: { profile: UserProfile | null }) {
               </span>
             )}
             <div className="text-xs">
-              <p className="font-semibold text-slate-800">{profile?.fullName || 'Unknown User'}</p>
+              <p className="max-w-32.5 truncate font-semibold text-slate-800">{profile?.fullName || 'Unknown User'}</p>
               <p className="capitalize text-slate-500">{profile?.role || 'visitor'}</p>
             </div>
+            <ChevronDown size={14} className="text-slate-400" />
           </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              void dispatch(logoutThunk())
-            }}
-            className="inline-flex h-10 items-center gap-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-teal-200 hover:bg-teal-50"
-          >
-            <LogOut size={14} />
-            Logout
-          </button>
         </div>
       </div>
 
-      <div className="mt-3 flex gap-2 overflow-x-auto lg:hidden">
+      <div className="mt-3 flex gap-2 overflow-x-auto border-t border-slate-100 pt-3 lg:hidden">
         {quickLinks.map((item) => (
           <Link
             key={item.to}

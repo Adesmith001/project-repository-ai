@@ -15,7 +15,7 @@ export function AppShell({ profile, children }: AppShellProps) {
         <Sidebar role={profile.role} />
       </div>
 
-      <div className="flex min-h-screen flex-col">
+      <div className="m-4 flex min-h-[calc(100vh-2rem)] flex-col rounded-[28px] border border-slate-200 bg-white shadow-[0_20px_48px_rgba(15,23,42,0.08)] xl:ml-0">
         <Topbar profile={profile} />
         <main className="content-shell pb-10">{children}</main>
       </div>
