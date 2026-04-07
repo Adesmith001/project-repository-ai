@@ -74,14 +74,14 @@ export function LandingPage() {
   return (
     <div className="pb-16">
       <div className="border-b border-slate-200/70 bg-white/70 px-4 py-2 text-center text-xs text-slate-600 backdrop-blur">
-        New: AI-powered originality checks for final-year topics are now integrated into the repository workflow.
+        New: AI REPO now includes grounded originality checks for final-year topics.
       </div>
 
       <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/75 backdrop-blur">
         <div className="content-shell flex h-16 items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-slate-950 text-xs font-bold text-white">AI</span>
-            <p className="text-sm font-semibold text-slate-900">Project Repository</p>
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-linear-to-br from-teal-500 to-cyan-400 text-xs font-bold text-slate-950">AI</span>
+            <p className="brand-wordmark text-sm text-slate-900">AI REPO</p>
           </div>
 
           <nav className="hidden items-center gap-6 text-sm text-slate-600 md:flex">
@@ -103,30 +103,49 @@ export function LandingPage() {
 
       <section className="section-space">
         <div className="content-shell">
-          <Reveal>
-            <Badge tone="accent">Academic Intelligence Platform</Badge>
-          </Reveal>
-          <Reveal delay={80}>
-            <h1 className="display-title mt-5 max-w-4xl text-balance text-slate-950">
-              Make every project topic more original, defensible, and research-worthy.
-            </h1>
-          </Reveal>
-          <Reveal delay={150}>
-            <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
-              Project Repository AI helps students and supervisors evaluate similarity against historical records, surface genuine research gaps,
-              and make smarter final-year project decisions.
-            </p>
-          </Reveal>
-          <Reveal delay={220}>
-            <div className="mt-8 flex flex-wrap items-center gap-3">
-              <Link to="/register">
-                <Button size="lg">Create workspace</Button>
-              </Link>
-              <Link to="/login">
-                <Button size="lg" variant="secondary">Open existing workspace</Button>
-              </Link>
+          <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
+            <div>
+              <Reveal>
+                <Badge tone="accent">Academic Intelligence Platform</Badge>
+              </Reveal>
+              <Reveal delay={80}>
+                <h1 className="display-title mt-5 max-w-4xl text-balance text-slate-950">
+                  Make every project topic more original, defensible, and research-worthy.
+                </h1>
+              </Reveal>
+              <Reveal delay={150}>
+                <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
+                  AI REPO helps students and supervisors evaluate similarity against historical records, surface genuine research gaps,
+                  and make smarter final-year project decisions.
+                </p>
+              </Reveal>
+              <Reveal delay={220}>
+                <div className="mt-8 flex flex-wrap items-center gap-3">
+                  <Link to="/register">
+                    <Button size="lg">Create workspace</Button>
+                  </Link>
+                  <Link to="/login">
+                    <Button size="lg" variant="secondary">Open existing workspace</Button>
+                  </Link>
+                </div>
+              </Reveal>
             </div>
-          </Reveal>
+
+            <Reveal delay={190}>
+              <Card className="p-6" hover>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Quick overview</p>
+                <h3 className="mt-2 text-2xl font-extrabold text-slate-950">AI REPO workflow</h3>
+                <div className="mt-4 space-y-3 text-sm text-slate-700">
+                  <p>- Curate institutional project records with metadata + PDF</p>
+                  <p>- Run similarity checks before topic approval</p>
+                  <p>- Generate grounded AI recommendations for refinement</p>
+                </div>
+                <Link to="/register" className="mt-5 inline-flex">
+                  <Button size="sm">Start now</Button>
+                </Link>
+              </Card>
+            </Reveal>
+          </div>
         </div>
       </section>
 
@@ -135,7 +154,7 @@ export function LandingPage() {
           <p className="text-center text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Trusted by</p>
           <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {trustItems.map((item) => (
-              <div key={item} className="premium-card rounded-xl px-4 py-3 text-center text-sm font-semibold text-slate-700">
+              <div key={item} className="soft-panel px-4 py-3 text-center text-sm font-semibold text-slate-700">
                 {item}
               </div>
             ))}
@@ -168,15 +187,15 @@ export function LandingPage() {
         <div className="content-shell space-y-8">
           {showcase.map((item, index) => (
             <Reveal key={item.title}>
-              <div className="grid items-center gap-6 rounded-[22px] border border-slate-200 bg-white p-6 shadow-sm lg:grid-cols-2">
+              <div className="grid items-center gap-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:grid-cols-2">
                 <div className={index % 2 === 1 ? 'lg:order-2' : ''}>
-                  <Badge className="mb-4">Product Showcase {index + 1}</Badge>
+                  <Badge tone="accent" className="mb-4">Product Showcase {index + 1}</Badge>
                   <h3 className="text-3xl font-extrabold text-slate-950">{item.title}</h3>
                   <p className="mt-4 leading-7 text-slate-600">{item.body}</p>
                   <ul className="mt-4 space-y-2 text-sm text-slate-700">
                     {item.bullet.map((point) => (
                       <li key={point} className="flex items-start gap-2">
-                        <span className="mt-2 h-1.5 w-1.5 rounded-full bg-blue-600"></span>
+                        <span className="mt-2 h-1.5 w-1.5 rounded-full bg-teal-600"></span>
                         <span>{point}</span>
                       </li>
                     ))}
@@ -252,7 +271,7 @@ export function LandingPage() {
           <SectionHeading eyebrow="FAQ" title="Common questions" description="Everything needed to adopt the platform quickly." />
           <div className="mt-8 space-y-3">
             {faqs.map((item) => (
-              <details key={item.question} className="premium-card rounded-xl p-5">
+              <details key={item.question} className="premium-card rounded-2xl p-5">
                 <summary className="cursor-pointer list-none text-lg font-bold text-slate-900">{item.question}</summary>
                 <p className="mt-3 text-sm leading-7 text-slate-600">{item.answer}</p>
               </details>
@@ -263,7 +282,7 @@ export function LandingPage() {
 
       <footer className="border-t border-slate-200 bg-white/70 py-8">
         <div className="content-shell flex flex-wrap items-center justify-between gap-4 text-sm text-slate-600">
-          <p>Project Repository AI</p>
+          <p className="brand-wordmark">AI REPO</p>
           <p>AI-powered originality, research depth, and academic trust.</p>
           <div className="flex items-center gap-4">
             <Link to="/login" className="font-semibold text-slate-800">Sign in</Link>

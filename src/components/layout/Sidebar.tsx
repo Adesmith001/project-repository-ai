@@ -55,14 +55,14 @@ const navItems: NavItem[] = [
 
 export function Sidebar({ role }: SidebarProps) {
   return (
-    <aside className="frosted-surface m-4 flex h-[calc(100vh-2rem)] w-65 flex-col rounded-[22px] p-4">
-      <div className="mb-8 flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3.5">
-        <div className="rounded-xl bg-slate-950 p-2 text-white">
+    <aside className="ink-panel m-4 flex h-[calc(100vh-2rem)] w-68 flex-col rounded-3xl p-4 text-slate-200 shadow-[0_26px_56px_rgba(15,23,42,0.32)]">
+      <div className="mb-8 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-3.5">
+        <div className="rounded-xl bg-linear-to-br from-teal-500 to-cyan-400 p-2 text-slate-950">
           <BookOpen size={18} />
         </div>
         <div>
-          <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Project Repository</p>
-          <p className="text-sm font-bold text-slate-900">AI Workspace</p>
+          <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Research Platform</p>
+          <p className="brand-wordmark text-lg text-white">AI REPO</p>
         </div>
       </div>
 
@@ -80,8 +80,8 @@ export function Sidebar({ role }: SidebarProps) {
                   cn(
                     'flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition duration-200',
                     isActive
-                      ? 'bg-white text-slate-950 ring-1 ring-slate-300 shadow-sm'
-                      : 'text-slate-600 hover:bg-white/80 hover:text-slate-900 hover:shadow-sm',
+                      ? 'bg-white/12 text-white ring-1 ring-teal-300/50 shadow-sm'
+                      : 'text-slate-300 hover:bg-white/8 hover:text-white',
                   )
                 }
               >
@@ -91,6 +91,11 @@ export function Sidebar({ role }: SidebarProps) {
             )
           })}
       </nav>
+
+      <div className="mt-auto rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-slate-300">
+        <p className="font-semibold text-slate-100">Uniform design system active</p>
+        <p className="mt-1">AI REPO workspace for discovery, originality, and governance.</p>
+      </div>
     </aside>
   )
 }

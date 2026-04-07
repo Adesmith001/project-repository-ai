@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { FolderKanban, SlidersHorizontal, Sparkles } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
 import { Select } from '../components/ui/Select'
@@ -12,7 +13,7 @@ import { LoadingState } from '../components/states/LoadingState'
 import { DEPARTMENTS } from '../lib/constants'
 import { useAppDispatch, useAppSelector } from '../hooks/useAppStore'
 import { removeProject, listProjects } from '../features/projects/projectService'
-import { setProjectFilter } from '../features/projects/projectFilterSlice'
+import { resetProjectFilters, setProjectFilter } from '../features/projects/projectFilterSlice'
 import { formatDate } from '../utils/date'
 import type { ProjectRecord } from '../types'
 
@@ -81,21 +82,91 @@ export function ProjectsPage() {
     return [{ value: 'all', label: 'All Years' }, ...years.map((item) => ({ value: String(item), label: String(item) }))]
   }, [allProjects])
 
+  const statusMeta: Record<ProjectRecord['status'], { tone: 'success' | 'warning' | 'default'; label: string }> = {
+    approved: { tone: 'success', label: 'Approved' },
+    pending: { tone: 'warning', label: 'Pending' },
+    rejected: { tone: 'default', label: 'Rejected' },
+  }
+
+  const hasActiveFilters =
+    filters.search.trim().length > 0 ||
+    filters.department !== 'all' ||
+    filters.year !== 'all' ||
+    filters.supervisor !== 'all' ||
+    filters.status !== 'all'
+
   return (
-    <div className="space-y-5 py-4">
+    <div className="space-y-6 py-4">
       <SectionHeading
         eyebrow="Repository"
         title="Explore institutional project intelligence"
         description="Filter and inspect previous project records before deciding on topic direction."
       />
 
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Card className="p-5" hover>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Visible records</p>
+            <FolderKanban size={16} className="text-teal-700" />
+          </div>
+          <p className="mt-2 text-3xl font-extrabold text-slate-950">{projects.length}</p>
+          <p className="mt-1 text-xs text-slate-500">Current repository result set</p>
+        </Card>
+
+        <Card className="p-5" hover>
+          <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Approved</p>
+          <p className="mt-2 text-3xl font-extrabold text-emerald-700">
+            {projects.filter((project) => project.status === 'approved').length}
+          </p>
+          <p className="mt-1 text-xs text-slate-500">Ready for reference and supervision</p>
+        </Card>
+
+        <Card className="p-5" hover>
+          <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Pending</p>
+          <p className="mt-2 text-3xl font-extrabold text-amber-700">
+            {projects.filter((project) => project.status === 'pending').length}
+          </p>
+          <p className="mt-1 text-xs text-slate-500">Awaiting institutional review</p>
+        </Card>
+
+        <Card className="p-5" hover>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs uppercase tracking-[0.14em] text-slate-500">AI REPO hint</p>
+            <Sparkles size={16} className="text-teal-700" />
+          </div>
+          <p className="mt-2 text-sm font-semibold text-slate-900">Use keyword + department filters first.</p>
+          <p className="mt-1 text-xs text-slate-500">This usually narrows to the most relevant historical context quickly.</p>
+        </Card>
+      </div>
+
       <Card className="p-6">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="text-xl font-extrabold text-slate-950">Project repository</h2>
-          <Badge>{projects.length} visible</Badge>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-extrabold text-slate-950">Project repository</h2>
+            <p className="mt-1 text-sm text-slate-600">Refine the dataset and inspect records with cleaner supervision context.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge>{projects.length} visible</Badge>
+            {hasActiveFilters ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  dispatch(resetProjectFilters())
+                }}
+              >
+                Reset filters
+              </Button>
+            ) : null}
+          </div>
         </div>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-5">
+        <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+          <SlidersHorizontal size={14} className="text-teal-700" />
+          Filter controls
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           <Input
             label="Search"
             placeholder="Title, abstract, keyword"
@@ -162,7 +233,7 @@ export function ProjectsPage() {
         {projects.map((project) => (
           <Card key={project.id} hover>
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <Link to={`/projects/${project.id}`} className="text-lg font-extrabold text-slate-950 underline-offset-2 hover:underline">
                   {project.title}
                 </Link>
@@ -173,17 +244,15 @@ export function ProjectsPage() {
                 <p className="text-xs text-slate-500">Updated {formatDate(project.updatedAt)}</p>
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold capitalize text-slate-700">
-                  {project.status}
-                </span>
+              <div className="flex items-center gap-2 self-start">
+                <Badge tone={statusMeta[project.status].tone}>{statusMeta[project.status].label}</Badge>
 
                 {profile?.role === 'admin' ? (
                   <>
                     <Link to={`/upload-project?edit=${project.id}`}>
-                      <Button variant="secondary">Edit</Button>
+                      <Button size="sm" variant="secondary">Edit</Button>
                     </Link>
-                    <Button variant="danger" onClick={() => void onDelete(project.id)}>
+                    <Button size="sm" variant="danger" onClick={() => void onDelete(project.id)}>
                       Delete
                     </Button>
                   </>

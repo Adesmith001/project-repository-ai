@@ -20,9 +20,12 @@ export function Topbar({ profile }: { profile: UserProfile | null }) {
   return (
     <header className="sticky top-0 z-20 px-4 py-4 sm:px-6">
       <div className="frosted-surface flex items-center justify-between gap-3 rounded-2xl px-4 py-3">
-        <div>
-          <h1 className="text-lg font-semibold text-slate-900">Project Repository AI</h1>
-          <p className="text-xs text-slate-500">AI-powered originality and research intelligence</p>
+        <div className="flex items-center gap-3">
+          <span className="brand-dot" aria-hidden="true"></span>
+          <div>
+            <h1 className="brand-wordmark text-lg text-slate-900">AI REPO</h1>
+            <p className="text-xs text-slate-500">Command center for project intelligence</p>
+          </div>
         </div>
 
         <div className="flex items-center gap-3">
@@ -58,7 +61,7 @@ export function Topbar({ profile }: { profile: UserProfile | null }) {
             onClick={() => {
               void dispatch(logoutThunk())
             }}
-            className="inline-flex h-10 items-center gap-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+            className="inline-flex h-10 items-center gap-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-teal-200 hover:bg-teal-50"
           >
             <LogOut size={14} />
             Logout
@@ -71,7 +74,7 @@ export function Topbar({ profile }: { profile: UserProfile | null }) {
           <Link
             key={item.to}
             to={item.to}
-            className="whitespace-nowrap rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700"
+            className="whitespace-nowrap rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700"
           >
             {item.label}
           </Link>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { FileUp, ShieldCheck } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
@@ -119,116 +120,163 @@ export function UploadProjectPage() {
   }
 
   return (
-    <div className="space-y-5 py-4">
+    <div className="space-y-6 py-4">
       <SectionHeading
         eyebrow="Repository Curation"
         title={editingId ? 'Edit project record' : 'Upload a new project record'}
         description="Store high-quality academic metadata and source PDFs for reliable institutional search and similarity analysis."
       />
 
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Card className="p-5" hover>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Form mode</p>
+            <FileUp size={16} className="text-teal-700" />
+          </div>
+          <p className="mt-2 text-xl font-extrabold text-slate-950">{editingId ? 'Editing' : 'Creating'}</p>
+          <p className="mt-1 text-xs text-slate-500">{editingId ? 'Updating existing project metadata' : 'Adding a fresh project record'}</p>
+        </Card>
+
+        <Card className="p-5" hover>
+          <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Upload progress</p>
+          <p className="mt-2 text-3xl font-extrabold text-slate-950">{uploadProgress}%</p>
+          <div className="mt-3 h-2 rounded-full bg-slate-100">
+            <div className="h-2 rounded-full bg-teal-500" style={{ width: `${Math.max(uploadProgress, 2)}%` }}></div>
+          </div>
+        </Card>
+
+        <Card className="p-5" hover>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs uppercase tracking-[0.14em] text-slate-500">File readiness</p>
+            <ShieldCheck size={16} className="text-emerald-600" />
+          </div>
+          <p className="mt-2 text-xl font-extrabold text-slate-950">{selectedFile || form.fileUrl ? 'Ready' : 'Missing PDF'}</p>
+          <p className="mt-1 text-xs text-slate-500">PDF is mandatory before saving.</p>
+        </Card>
+
+        <Card className="p-5" hover>
+          <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Quality note</p>
+          <p className="mt-2 text-sm font-semibold text-slate-900">Use concise keywords and explicit abstracts.</p>
+          <p className="mt-1 text-xs text-slate-500">It improves retrieval quality for AI REPO similarity checks.</p>
+        </Card>
+      </div>
+
       <Card className="p-6">
-      <form className="grid gap-4 md:grid-cols-2" onSubmit={onSubmit}>
-        <Input
-          label="Project title"
-          value={form.title}
-          onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
-          required
-        />
+        <form className="space-y-5" onSubmit={onSubmit}>
+          <div className="soft-panel p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Core metadata</p>
+            <div className="mt-3 grid gap-4 md:grid-cols-2">
+              <Input
+                label="Project title"
+                value={form.title}
+                onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
+                required
+              />
 
-        <Input
-          label="Student name"
-          value={form.studentName}
-          onChange={(event) => setForm((prev) => ({ ...prev, studentName: event.target.value }))}
-          required
-        />
+              <Input
+                label="Student name"
+                value={form.studentName}
+                onChange={(event) => setForm((prev) => ({ ...prev, studentName: event.target.value }))}
+                required
+              />
 
-        <Input
-          label="Supervisor"
-          value={form.supervisor}
-          onChange={(event) => setForm((prev) => ({ ...prev, supervisor: event.target.value }))}
-          required
-        />
+              <Input
+                label="Supervisor"
+                value={form.supervisor}
+                onChange={(event) => setForm((prev) => ({ ...prev, supervisor: event.target.value }))}
+                required
+              />
 
-        <Input
-          label="Year"
-          type="number"
-          min={2000}
-          max={2100}
-          value={form.year}
-          onChange={(event) => setForm((prev) => ({ ...prev, year: Number(event.target.value) || prev.year }))}
-          required
-        />
+              <Input
+                label="Year"
+                type="number"
+                min={2000}
+                max={2100}
+                value={form.year}
+                onChange={(event) => setForm((prev) => ({ ...prev, year: Number(event.target.value) || prev.year }))}
+                required
+              />
 
-        <Select
-          label="Department"
-          options={DEPARTMENTS.map((item) => ({ value: item, label: item }))}
-          value={form.department}
-          onChange={(event) => setForm((prev) => ({ ...prev, department: event.target.value }))}
-        />
+              <Select
+                label="Department"
+                options={DEPARTMENTS.map((item) => ({ value: item, label: item }))}
+                value={form.department}
+                onChange={(event) => setForm((prev) => ({ ...prev, department: event.target.value }))}
+              />
 
-        <Select
-          label="Status"
-          options={statusOptions}
-          value={form.status}
-          onChange={(event) =>
-            setForm((prev) => ({
-              ...prev,
-              status: event.target.value as ProjectInput['status'],
-            }))
-          }
-        />
+              <Select
+                label="Status"
+                options={statusOptions}
+                value={form.status}
+                onChange={(event) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    status: event.target.value as ProjectInput['status'],
+                  }))
+                }
+              />
+            </div>
+          </div>
 
-        <Input
-          label="Keywords (comma-separated)"
-          value={keywordText}
-          onChange={(event) => setKeywordText(event.target.value)}
-          className="md:col-span-2"
-          required
-        />
+          <div className="soft-panel p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Research context</p>
+            <div className="mt-3 grid gap-4 md:grid-cols-2">
+              <Input
+                label="Keywords (comma-separated)"
+                value={keywordText}
+                onChange={(event) => setKeywordText(event.target.value)}
+                className="md:col-span-2"
+                required
+              />
 
-        <Textarea
-          label="Abstract"
-          value={form.abstract}
-          onChange={(event) => setForm((prev) => ({ ...prev, abstract: event.target.value }))}
-          className="md:col-span-2"
-          required
-        />
+              <Textarea
+                label="Abstract"
+                value={form.abstract}
+                onChange={(event) => setForm((prev) => ({ ...prev, abstract: event.target.value }))}
+                className="md:col-span-2"
+                required
+              />
+            </div>
+          </div>
 
-        <div className="md:col-span-2">
-          <label className="block space-y-1 text-sm">
-            <span className="font-medium text-slate-700">Project PDF (PDF only)</span>
-            <input
-              type="file"
-              accept="application/pdf"
-              onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
-              className="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-            />
-          </label>
+          <div className="soft-panel p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Source document</p>
+            <div className="mt-3">
+              <label className="block space-y-1 text-sm">
+                <span className="font-medium text-slate-700">Project PDF (PDF only)</span>
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
+                  className="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                />
+              </label>
 
-          {uploadProgress > 0 ? (
-            <p className="mt-1 text-xs text-slate-600">Upload progress: {uploadProgress}%</p>
+              {uploadProgress > 0 ? (
+                <p className="mt-2 text-xs text-slate-600">Upload progress: {uploadProgress}%</p>
+              ) : null}
+
+              {form.fileUrl ? (
+                <p className="mt-2 text-xs text-slate-500">Current file attached. Upload another PDF to replace it.</p>
+              ) : null}
+            </div>
+          </div>
+
+          {error ? (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              {error}
+            </p>
           ) : null}
 
-          {form.fileUrl ? (
-            <p className="mt-1 text-xs text-slate-500">Current file attached. Upload another PDF to replace it.</p>
-          ) : null}
-        </div>
-
-        {error ? (
-          <p className="md:col-span-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-            {error}
-          </p>
-        ) : null}
-
-        <div className="md:col-span-2 flex gap-2">
-          <Button size="lg" type="submit" disabled={loading}>
-            {loading ? 'Saving...' : editingId ? 'Update project' : 'Create project'}
-          </Button>
-          <Button type="button" variant="secondary" onClick={() => navigate('/projects')}>
-            Cancel
-          </Button>
-        </div>
-      </form>
+          <div className="flex flex-wrap gap-2">
+            <Button size="lg" type="submit" disabled={loading}>
+              {loading ? 'Saving...' : editingId ? 'Update project' : 'Create project'}
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => navigate('/projects')}>
+              Cancel
+            </Button>
+          </div>
+        </form>
       </Card>
     </div>
   )

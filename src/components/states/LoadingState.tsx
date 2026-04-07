@@ -8,7 +8,7 @@ export function LoadingState({ label = '', fullScreen = false }: LoadingStatePro
     return (
       <div className="flex min-h-screen w-full items-center justify-center">
         <span
-          className="h-9 w-9 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600"
+          className="h-9 w-9 animate-spin rounded-full border-2 border-slate-300 border-t-teal-600"
           aria-hidden="true"
         ></span>
         <span className="sr-only">{label || 'Loading'}</span>
@@ -19,7 +19,7 @@ export function LoadingState({ label = '', fullScreen = false }: LoadingStatePro
   return (
     <div className="premium-card flex min-h-36 items-center justify-center gap-3 text-sm text-slate-600">
       <span
-        className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-slate-500"
+        className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-teal-600"
         aria-hidden="true"
       ></span>
       <span className="sr-only">{label || 'Loading'}</span>
