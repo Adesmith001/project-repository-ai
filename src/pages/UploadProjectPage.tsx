@@ -3,12 +3,14 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { FileUp, ShieldCheck } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
+import FileUpload from '../components/ui/file-upload'
 import { Input } from '../components/ui/Input'
 import { Select } from '../components/ui/Select'
 import { Textarea } from '../components/ui/Textarea'
 import { SectionHeading } from '../components/ui/SectionHeading'
 import { DEFAULT_DEPARTMENT } from '../lib/constants'
 import { uploadPdfToCloudinary } from '../lib/cloudinary'
+import { extractProjectMetadataFromPdf } from '../features/projects/documentExtractionService'
 import { createProject, getProjectById, updateProject } from '../features/projects/projectService'
 import { listUserProfiles } from '../features/auth/profileService'
 import { useAppSelector } from '../hooks/useAppStore'
@@ -47,6 +49,8 @@ export function UploadProjectPage() {
   const [uploadProgress, setUploadProgress] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [extractionMessage, setExtractionMessage] = useState('')
+  const [extractingMetadata, setExtractingMetadata] = useState(false)
   const [supervisorOptions, setSupervisorOptions] = useState<Array<{ value: string; label: string }>>([])
   const [loadingSupervisors, setLoadingSupervisors] = useState(true)
 
@@ -95,6 +99,22 @@ export function UploadProjectPage() {
   }, [departments])
 
   useEffect(() => {
+    if (!profile?.fullName) {
+      return
+    }
+
+    setForm((prev) => {
+      if (profile.role === 'student') {
+        return prev.studentName === profile.fullName
+          ? prev
+          : { ...prev, studentName: profile.fullName }
+      }
+
+      return prev.studentName.trim() ? prev : { ...prev, studentName: profile.fullName }
+    })
+  }, [profile?.fullName, profile?.role])
+
+  useEffect(() => {
     let mounted = true
 
     async function loadSupervisors() {
@@ -129,6 +149,47 @@ export function UploadProjectPage() {
     }
   }, [])
 
+  async function onUploadFilesChange(files: File[]) {
+    const file = files[0] ?? null
+    setSelectedFile(file)
+    setExtractionMessage('')
+
+    if (!file) {
+      return
+    }
+
+    if (file.type !== 'application/pdf') {
+      setError('Only PDF uploads are allowed in this version.')
+      return
+    }
+
+    setError('')
+    setExtractingMetadata(true)
+
+    try {
+      const extracted = await extractProjectMetadataFromPdf(file)
+      const nextKeywords = extracted.keywords?.join(', ') || ''
+
+      setForm((prev) => ({
+        ...prev,
+        title: prev.title.trim() ? prev.title : extracted.title || prev.title,
+        abstract: prev.abstract.trim() ? prev.abstract : extracted.abstract || prev.abstract,
+      }))
+
+      setKeywordText((prev) => (prev.trim() ? prev : nextKeywords))
+
+      if (extracted.abstract || extracted.title || (extracted.keywords && extracted.keywords.length > 0)) {
+        setExtractionMessage('Project details were extracted from your PDF and used to prefill empty fields.')
+      } else {
+        setExtractionMessage('File uploaded. No structured abstract/keywords were detected automatically.')
+      }
+    } catch {
+      setExtractionMessage('File uploaded. Automatic extraction was unavailable for this document.')
+    } finally {
+      setExtractingMetadata(false)
+    }
+  }
+
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError('')
@@ -146,6 +207,7 @@ export function UploadProjectPage() {
       }
 
       if (profile?.role === 'student') {
+        payload.studentName = profile.fullName || payload.studentName
         payload.status = 'pending'
       }
 
@@ -238,9 +300,10 @@ export function UploadProjectPage() {
               />
 
               <Input
-                label="Student name"
-                value={form.studentName}
+                label={profile?.role === 'student' ? 'Student name (auto)' : 'Student name'}
+                value={profile?.role === 'student' ? (profile.fullName || form.studentName) : form.studentName}
                 onChange={(event) => setForm((prev) => ({ ...prev, studentName: event.target.value }))}
+                disabled={profile?.role === 'student'}
                 required
               />
 
@@ -330,18 +393,24 @@ export function UploadProjectPage() {
           <div className="soft-panel p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Source document</p>
             <div className="mt-3">
-              <label className="block space-y-1 text-sm">
-                <span className="font-medium text-slate-700">Project PDF (PDF only)</span>
-                <input
-                  type="file"
-                  accept="application/pdf"
-                  onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
-                  className="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-                />
-              </label>
+              <FileUpload
+                accept="application/pdf"
+                multiple={false}
+                onFilesChange={(files) => {
+                  void onUploadFilesChange(files)
+                }}
+              />
 
               {uploadProgress > 0 ? (
                 <p className="mt-2 text-xs text-slate-600">Upload progress: {uploadProgress}%</p>
+              ) : null}
+
+              {extractingMetadata ? (
+                <p className="mt-2 text-xs text-blue-700">Extracting details from PDF...</p>
+              ) : null}
+
+              {extractionMessage ? (
+                <p className="mt-2 text-xs text-slate-600">{extractionMessage}</p>
               ) : null}
 
               {form.fileUrl ? (

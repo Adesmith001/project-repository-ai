@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
+import { BottomNavBar } from '../ui/bottom-nav-bar'
 import type { UserProfile } from '../../types'
 
 interface AppShellProps {
@@ -17,9 +18,12 @@ export function AppShell({ profile, children }: AppShellProps) {
 
       <div className="m-4 flex h-[calc(100vh-2rem)] flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_20px_48px_rgba(15,23,42,0.08)] xl:ml-0">
         <Topbar profile={profile} />
-        <main className="flex-1 overflow-y-auto pb-10">
+        <main className="flex-1 overflow-y-auto pb-24 md:pb-10">
           <div className="content-shell">{children}</div>
         </main>
+        <div className="md:hidden">
+          <BottomNavBar role={profile.role} stickyBottom />
+        </div>
       </div>
     </div>
   )

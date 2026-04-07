@@ -1,19 +1,7 @@
 import { Bell, ChevronDown, Search, User2 } from 'lucide-react'
-import { Link } from 'react-router-dom'
 import type { UserProfile } from '../../types'
 
 export function Topbar({ profile }: { profile: UserProfile | null }) {
-  const role = profile?.role
-
-  const quickLinks = [
-    { to: '/dashboard', label: 'Dashboard', roles: ['student', 'supervisor', 'admin'] },
-    { to: '/projects', label: 'Repository', roles: ['student', 'supervisor', 'admin'] },
-    { to: '/check-topic', label: 'Topic Checker', roles: ['student', 'supervisor', 'admin'] },
-    { to: '/settings', label: 'Settings', roles: ['student', 'supervisor', 'admin'] },
-    { to: '/upload-project', label: 'Upload', roles: ['student', 'supervisor', 'admin'] },
-    { to: '/admin/users', label: 'Users', roles: ['supervisor', 'admin'] },
-  ].filter((item) => (role ? item.roles.includes(role) : false))
-
   return (
     <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/96 px-4 py-3 backdrop-blur sm:px-6">
       <div className="flex items-center gap-3">
@@ -54,18 +42,6 @@ export function Topbar({ profile }: { profile: UserProfile | null }) {
             <ChevronDown size={14} className="text-slate-400" />
           </div>
         </div>
-      </div>
-
-      <div className="mt-3 flex gap-2 overflow-x-auto border-t border-slate-100 pt-3 lg:hidden">
-        {quickLinks.map((item) => (
-          <Link
-            key={item.to}
-            to={item.to}
-            className="whitespace-nowrap rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700"
-          >
-            {item.label}
-          </Link>
-        ))}
       </div>
     </header>
   )

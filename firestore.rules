@@ -192,7 +192,7 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin() || isSupervisor();
-      allow list: if isAdmin() || isSupervisor();
+      allow list: if isSignedIn();
 
       allow create: if isOwner(userId)
         && isValidUserProfile(request.resource.data, userId)
