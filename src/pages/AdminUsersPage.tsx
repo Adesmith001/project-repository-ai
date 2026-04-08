@@ -12,6 +12,7 @@ import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { formatDate } from '../utils/date'
 import { useAppSelector } from '../hooks/useAppStore'
+import { useErrorToast } from '../hooks/useErrorToast'
 import { useDepartments } from '../hooks/useDepartments'
 import type { UserProfile } from '../types'
 
@@ -30,6 +31,8 @@ export function AdminUsersPage() {
   const [departmentActionInfo, setDepartmentActionInfo] = useState('')
   const [creatingDepartment, setCreatingDepartment] = useState(false)
   const { departments, loadingDepartments, refreshDepartments } = useDepartments()
+
+  useErrorToast(departmentActionError)
 
   useEffect(() => {
     let mounted = true

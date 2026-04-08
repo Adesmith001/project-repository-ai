@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { listDepartments } from '../features/departments/departmentService'
 import { DEFAULT_DEPARTMENT } from '../lib/constants'
+import { useErrorToast } from './useErrorToast'
 
 export function useDepartments() {
   const [departments, setDepartments] = useState<string[]>([DEFAULT_DEPARTMENT])
   const [loadingDepartments, setLoadingDepartments] = useState(true)
   const [departmentError, setDepartmentError] = useState('')
+
+  useErrorToast(departmentError)
 
   const refreshDepartments = useCallback(async () => {
     try {

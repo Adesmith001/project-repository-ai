@@ -14,6 +14,7 @@ import { ErrorState } from '../components/states/ErrorState'
 import { LoadingState } from '../components/states/LoadingState'
 import { useAppDispatch, useAppSelector } from '../hooks/useAppStore'
 import { useDepartments } from '../hooks/useDepartments'
+import { useErrorToast } from '../hooks/useErrorToast'
 import { removeProject, listProjects, updateProjectStatus } from '../features/projects/projectService'
 import { resetProjectFilters, setProjectFilter } from '../features/projects/projectFilterSlice'
 import { formatDate } from '../utils/date'
@@ -33,6 +34,8 @@ export function ProjectsPage() {
   const [rejectingProject, setRejectingProject] = useState<ProjectRecord | null>(null)
   const [rejectionReasonDraft, setRejectionReasonDraft] = useState('')
   const [rejectionError, setRejectionError] = useState('')
+
+  useErrorToast(rejectionError)
 
   useEffect(() => {
     let mounted = true

@@ -4,6 +4,7 @@ import { Eye, EyeOff, Globe } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { useAppDispatch, useAppSelector } from '../hooks/useAppStore'
+import { useErrorToast } from '../hooks/useErrorToast'
 import { googleLoginThunk, loginThunk } from '../features/auth/authSlice'
 import { fetchProfileThunk } from '../features/auth/profileSlice'
 import heroImage from '../assets/hero.png'
@@ -18,6 +19,8 @@ export function LoginPage() {
   const [localError, setLocalError] = useState('')
   const [rememberMe, setRememberMe] = useState(true)
   const [showPassword, setShowPassword] = useState(false)
+
+  useErrorToast(localError || error)
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()

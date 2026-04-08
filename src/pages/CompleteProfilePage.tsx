@@ -8,6 +8,7 @@ import { Select } from '../components/ui/Select'
 import { ensureProfileForAuthUserThunk, fetchProfileThunk } from '../features/auth/profileSlice'
 import { listSupervisorProfiles, setStudentSupervisorAssignment } from '../features/auth/profileService'
 import { useAppDispatch, useAppSelector } from '../hooks/useAppStore'
+import { useErrorToast } from '../hooks/useErrorToast'
 import { DEFAULT_DEPARTMENT } from '../lib/constants'
 import { useDepartments } from '../hooks/useDepartments'
 import type { RegisterPayload } from '../types'
@@ -47,6 +48,8 @@ export function CompleteProfilePage() {
   const [supervisorOptions, setSupervisorOptions] = useState<Array<{ value: string; label: string; name: string }>>([])
   const [selectedSupervisorUid, setSelectedSupervisorUid] = useState('')
   const [loadingSupervisors, setLoadingSupervisors] = useState(true)
+
+  useErrorToast(localError)
 
   const departmentOptions = useMemo(
     () => departments.map((item) => ({ value: item, label: item })),

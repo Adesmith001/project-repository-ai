@@ -8,6 +8,7 @@ import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { SectionHeading } from '../components/ui/SectionHeading'
 import { useAppDispatch, useAppSelector } from '../hooks/useAppStore'
+import { useErrorToast } from '../hooks/useErrorToast'
 import { runTopicCheckThunk } from '../features/topicChecker/topicCheckerSlice'
 import { parseKeywordInput } from '../utils/parsers'
 
@@ -20,6 +21,8 @@ export function CheckTopicPage() {
   const [keywordsText, setKeywordsText] = useState('')
   const [matchesSearch, setMatchesSearch] = useState('')
   const [minScoreFilter, setMinScoreFilter] = useState<'all' | '0.5' | '0.7' | '0.85'>('all')
+
+  useErrorToast(error)
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()

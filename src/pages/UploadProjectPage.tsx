@@ -14,6 +14,7 @@ import { extractProjectMetadataFromPdf } from '../features/projects/documentExtr
 import { createProject, getProjectById, updateProject } from '../features/projects/projectService'
 import { listSupervisorProfiles } from '../features/auth/profileService'
 import { useAppSelector } from '../hooks/useAppStore'
+import { useErrorToast } from '../hooks/useErrorToast'
 import { useDepartments } from '../hooks/useDepartments'
 import { parseKeywordInput } from '../utils/parsers'
 import type { ProjectInput } from '../types'
@@ -56,6 +57,8 @@ export function UploadProjectPage() {
   const [extractingMetadata, setExtractingMetadata] = useState(false)
   const [supervisorOptions, setSupervisorOptions] = useState<Array<{ value: string; label: string; name: string }>>([])
   const [loadingSupervisors, setLoadingSupervisors] = useState(true)
+
+  useErrorToast(error)
 
   useEffect(() => {
     let mounted = true

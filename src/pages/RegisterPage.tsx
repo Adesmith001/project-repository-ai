@@ -5,6 +5,7 @@ import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { DEFAULT_DEPARTMENT } from '../lib/constants'
 import { useAppDispatch, useAppSelector } from '../hooks/useAppStore'
+import { useErrorToast } from '../hooks/useErrorToast'
 import { googleLoginThunk, registerThunk } from '../features/auth/authSlice'
 import type { RegisterPayload } from '../types'
 import heroImage from '../assets/hero.png'
@@ -23,6 +24,8 @@ export function RegisterPage() {
   const [localError, setLocalError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+
+  useErrorToast(localError || error)
 
   async function onGoogleSignup() {
     setLocalError('')
@@ -92,9 +95,14 @@ export function RegisterPage() {
               <p className="brand-wordmark text-lg text-slate-900">AI REPO</p>
               <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Create Account</p>
             </div>
-            <Link to="/login" className="rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white">
+             <Button
+              type="button"
+              size="sm"
+              className="rounded-full px-4 py-2 text-xs font-semibold"
+              onClick={() => navigate('/login')}
+            >
               Sign in
-            </Link>
+            </Button>
           </div>
 
           <div className="mt-6">
