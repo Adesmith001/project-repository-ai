@@ -3,6 +3,25 @@ import { collection, doc, getDoc, getDocs, setDoc, updateDoc } from 'firebase/fi
 import { db } from '../../lib/firebase'
 import type { UserProfile, UserRole } from '../../types'
 
+function normalizeUserProfile(data: Partial<UserProfile>): UserProfile {
+  return {
+    uid: data.uid || '',
+    email: data.email || '',
+    fullName: data.fullName || '',
+    photoURL: data.photoURL,
+    department: data.department || '',
+    role: (data.role || 'student') as UserRole,
+    assignedSupervisorUid: data.assignedSupervisorUid || '',
+    assignedSupervisorName: data.assignedSupervisorName || '',
+    uploadCleared: Boolean(data.uploadCleared),
+    clearedBySupervisorUid: data.clearedBySupervisorUid || '',
+    clearedBySupervisorName: data.clearedBySupervisorName || '',
+    clearanceUpdatedAt: data.clearanceUpdatedAt || '',
+    createdAt: data.createdAt || '',
+    updatedAt: data.updatedAt || '',
+  }
+}
+
 function getUsersCollection() {
   if (!db) {
     throw new Error('Firestore is not configured.')
@@ -54,13 +73,18 @@ export async function getUserProfile(uid: string) {
     return null
   }
 
-  return snapshot.data() as UserProfile
+  return normalizeUserProfile(snapshot.data() as Partial<UserProfile>)
 }
 
 export async function listUserProfiles() {
   const snapshot = await getDocs(getUsersCollection())
 
-  return snapshot.docs.map((item) => item.data() as UserProfile)
+  return snapshot.docs.map((item) => normalizeUserProfile(item.data() as Partial<UserProfile>))
+}
+
+export async function listSupervisorProfiles() {
+  const users = await listUserProfiles()
+  return users.filter((item) => item.role === 'supervisor')
 }
 
 export async function setStudentUploadClearance(payload: {
@@ -80,6 +104,24 @@ export async function setStudentUploadClearance(payload: {
     clearedBySupervisorUid: payload.cleared ? payload.actorUid : '',
     clearedBySupervisorName: payload.cleared ? payload.actorName : '',
     clearanceUpdatedAt: now,
+    updatedAt: now,
+  })
+}
+
+export async function setStudentSupervisorAssignment(payload: {
+  userId: string
+  supervisorUid: string
+  supervisorName: string
+}) {
+  if (!db) {
+    throw new Error('Firestore is not configured.')
+  }
+
+  const now = new Date().toISOString()
+
+  await updateDoc(doc(db, 'users', payload.userId), {
+    assignedSupervisorUid: payload.supervisorUid,
+    assignedSupervisorName: payload.supervisorName,
     updatedAt: now,
   })
 }

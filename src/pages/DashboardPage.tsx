@@ -8,10 +8,11 @@ import { Badge } from '../components/ui/Badge'
 import { Button } from '../components/ui/Button'
 import { SectionHeading } from '../components/ui/SectionHeading'
 import { listProjects } from '../features/projects/projectService'
+import { listUserProfiles } from '../features/auth/profileService'
 import { dashboardSummary } from '../features/dashboard/dashboardUtils'
 import { useAppSelector } from '../hooks/useAppStore'
 import { formatDate } from '../utils/date'
-import type { ProjectRecord, ProjectStatus } from '../types'
+import type { ProjectRecord, ProjectStatus, UserProfile } from '../types'
 
 export function DashboardPage() {
   const profile = useAppSelector((state) => state.profile.profile)
@@ -21,6 +22,7 @@ export function DashboardPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | ProjectStatus>('all')
   const [yearFilter, setYearFilter] = useState<'all' | string>('all')
+  const [supervisees, setSupervisees] = useState<UserProfile[]>([])
 
   useEffect(() => {
     let mounted = true
@@ -50,6 +52,41 @@ export function DashboardPage() {
       mounted = false
     }
   }, [])
+
+  useEffect(() => {
+    let mounted = true
+
+    async function loadSupervisees() {
+      if (!profile || profile.role !== 'supervisor') {
+        if (mounted) {
+          setSupervisees([])
+        }
+        return
+      }
+
+      try {
+        const users = await listUserProfiles()
+
+        if (mounted) {
+          setSupervisees(
+            users
+              .filter((user) => user.role === 'student' && user.assignedSupervisorUid === profile.uid)
+              .sort((a, b) => a.fullName.localeCompare(b.fullName)),
+          )
+        }
+      } catch {
+        if (mounted) {
+          setSupervisees([])
+        }
+      }
+    }
+
+    void loadSupervisees()
+
+    return () => {
+      mounted = false
+    }
+  }, [profile])
 
   const summary = useMemo(() => {
     if (!profile) {
@@ -136,6 +173,34 @@ export function DashboardPage() {
           <p className="mt-1 text-xs text-slate-500">Needs significant changes</p>
         </Card>
       </div>
+
+      {profile.role === 'supervisor' ? (
+        <Card className="p-5" hover>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-xs uppercase tracking-[0.14em] text-slate-500">My supervisees</p>
+              <p className="mt-2 text-2xl font-extrabold text-slate-950">{supervisees.length}</p>
+              <p className="mt-1 text-xs text-slate-500">Students assigned to your supervision roster</p>
+            </div>
+            <Link to="/admin/users">
+              <Button size="sm" variant="outline">Manage supervisees</Button>
+            </Link>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            {supervisees.length > 0 ? supervisees.slice(0, 8).map((student) => (
+              <span
+                key={student.uid}
+                className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700"
+              >
+                {student.fullName}
+              </span>
+            )) : (
+              <p className="text-sm text-slate-500">No students are assigned to you yet.</p>
+            )}
+          </div>
+        </Card>
+      ) : null}
 
       <Card className="overflow-hidden p-0" hover>
         <div className="border-b border-slate-200 px-5 py-4">

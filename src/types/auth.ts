@@ -14,6 +14,8 @@ export interface UserProfile {
   photoURL?: string
   department: string
   role: UserRole
+  assignedSupervisorUid: string
+  assignedSupervisorName: string
   uploadCleared: boolean
   clearedBySupervisorUid: string
   clearedBySupervisorName: string
@@ -28,6 +30,8 @@ export interface RegisterPayload {
   password: string
   department: string
   role: Exclude<UserRole, 'admin'>
+  assignedSupervisorUid?: string
+  assignedSupervisorName?: string
 }
 
 export interface LoginPayload {

@@ -11,7 +11,28 @@ import {
 } from 'firebase/firestore'
 import { createEmbedding } from '../../lib/gemini'
 import { db } from '../../lib/firebase'
-import type { ProjectFilters, ProjectInput, ProjectRecord } from '../../types'
+import type { ProjectFilters, ProjectInput, ProjectRecord, UserProfile } from '../../types'
+
+function normalizeProjectRecord(projectId: string, data: Partial<ProjectRecord>): ProjectRecord {
+  return {
+    id: projectId,
+    title: data.title || '',
+    abstract: data.abstract || '',
+    keywords: data.keywords || [],
+    department: data.department || '',
+    year: data.year || new Date().getFullYear(),
+    supervisor: data.supervisor || '',
+    supervisorUid: data.supervisorUid || '',
+    studentName: data.studentName || '',
+    studentUid: data.studentUid || '',
+    fileUrl: data.fileUrl || '',
+    filePublicId: data.filePublicId || '',
+    status: data.status || 'pending',
+    embedding: data.embedding || [],
+    createdAt: data.createdAt || '',
+    updatedAt: data.updatedAt || '',
+  }
+}
 
 function createSemanticInput(input: Pick<ProjectInput, 'title' | 'abstract' | 'keywords'>) {
   return [input.title, input.abstract, input.keywords.join(', ')].join('\n')
@@ -76,11 +97,7 @@ export async function listProjects(filters?: Partial<ProjectFilters>) {
   const snapshot = clauses.length > 0 ? await getDocs(query(collectionRef, ...clauses)) : await getDocs(collectionRef)
 
   const projects = snapshot.docs.map((snapshotDoc) => {
-    const data = snapshotDoc.data() as Omit<ProjectRecord, 'id'>
-    return {
-      id: snapshotDoc.id,
-      ...data,
-    }
+    return normalizeProjectRecord(snapshotDoc.id, snapshotDoc.data() as Partial<ProjectRecord>)
   })
 
   return applyClientFilters(projects, filters)
@@ -97,10 +114,7 @@ export async function getProjectById(projectId: string) {
     return null
   }
 
-  return {
-    id: snapshot.id,
-    ...(snapshot.data() as Omit<ProjectRecord, 'id'>),
-  }
+  return normalizeProjectRecord(snapshot.id, snapshot.data() as Partial<ProjectRecord>)
 }
 
 export async function createProject(projectInput: ProjectInput) {
@@ -153,6 +167,48 @@ export async function updateProject(projectId: string, input: Partial<ProjectInp
 
   if (!refreshed) {
     throw new Error('Project not found after update.')
+  }
+
+  return refreshed
+}
+
+export async function updateProjectStatus(payload: {
+  projectId: string
+  status: ProjectRecord['status']
+  actor: Pick<UserProfile, 'uid' | 'fullName' | 'role'>
+}) {
+  if (!db) {
+    throw new Error('Firestore is not configured.')
+  }
+
+  const project = await getProjectById(payload.projectId)
+
+  if (!project) {
+    throw new Error('Project not found.')
+  }
+
+  if (payload.actor.role !== 'admin' && payload.actor.role !== 'supervisor') {
+    throw new Error('Only supervisors and admins can review projects.')
+  }
+
+  if (payload.actor.role === 'supervisor') {
+    const hasUidMatch = project.supervisorUid.trim().length > 0 && project.supervisorUid === payload.actor.uid
+    const hasNameMatch = project.supervisor.trim().toLowerCase() === payload.actor.fullName.trim().toLowerCase()
+
+    if (!hasUidMatch && !hasNameMatch) {
+      throw new Error('You can only review projects assigned to you.')
+    }
+  }
+
+  await updateDoc(doc(db, 'projects', payload.projectId), {
+    status: payload.status,
+    updatedAt: new Date().toISOString(),
+  })
+
+  const refreshed = await getProjectById(payload.projectId)
+
+  if (!refreshed) {
+    throw new Error('Project not found after review update.')
   }
 
   return refreshed

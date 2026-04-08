@@ -1,73 +1,35 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, Globe } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
-import { Select } from '../components/ui/Select'
 import { DEFAULT_DEPARTMENT } from '../lib/constants'
 import { useAppDispatch, useAppSelector } from '../hooks/useAppStore'
-import { useDepartments } from '../hooks/useDepartments'
 import { googleLoginThunk, registerThunk } from '../features/auth/authSlice'
-import { ensureProfileForAuthUserThunk, ensureProfileFromRegisterThunk } from '../features/auth/profileSlice'
 import type { RegisterPayload } from '../types'
 import heroImage from '../assets/hero.png'
-
-const roleOptions = [
-  { value: 'student', label: 'Student' },
-  { value: 'supervisor', label: 'Supervisor' },
-]
 
 export function RegisterPage() {
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
   const { status, error } = useAppSelector((state) => state.auth)
 
-  const { departments } = useDepartments()
-
-  const [form, setForm] = useState<RegisterPayload>({
+  const [form, setForm] = useState<Pick<RegisterPayload, 'fullName' | 'email' | 'password'>>({
     fullName: '',
     email: '',
     password: '',
-    department: DEFAULT_DEPARTMENT,
-    role: 'student',
   })
   const [confirmPassword, setConfirmPassword] = useState('')
   const [localError, setLocalError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
-  const departmentOptions = useMemo(
-    () => departments.map((item) => ({ value: item, label: item })),
-    [departments],
-  )
-
-  useEffect(() => {
-    if (departments.length === 0) {
-      return
-    }
-
-    setForm((prev) => (departments.includes(prev.department) ? prev : { ...prev, department: departments[0] }))
-  }, [departments])
-
   async function onGoogleSignup() {
     setLocalError('')
 
     try {
-      const authUser = await dispatch(googleLoginThunk()).unwrap()
-
-      await dispatch(
-        ensureProfileForAuthUserThunk({
-          uid: authUser.uid,
-          email: authUser.email,
-          displayName: authUser.displayName,
-          photoURL: authUser.photoURL,
-          fullName: form.fullName,
-          department: form.department,
-          role: form.role,
-        }),
-      ).unwrap()
-
-      navigate('/dashboard', { replace: true })
+      await dispatch(googleLoginThunk()).unwrap()
+      navigate('/complete-profile', { replace: true })
     } catch (submitError) {
       setLocalError(submitError instanceof Error ? submitError.message : 'Unable to continue with Google.')
     }
@@ -88,16 +50,17 @@ export function RegisterPage() {
     }
 
     try {
-      const authUser = await dispatch(registerThunk(form)).unwrap()
+      const registerPayload: RegisterPayload = {
+        fullName: form.fullName,
+        email: form.email,
+        password: form.password,
+        department: DEFAULT_DEPARTMENT,
+        role: 'student',
+      }
 
-      await dispatch(
-        ensureProfileFromRegisterThunk({
-          uid: authUser.uid,
-          values: form,
-        }),
-      ).unwrap()
+      await dispatch(registerThunk(registerPayload)).unwrap()
 
-      navigate('/dashboard', { replace: true })
+      navigate('/complete-profile', { replace: true })
     } catch (submitError) {
       setLocalError(submitError instanceof Error ? submitError.message : 'Unable to register account.')
     }
@@ -155,27 +118,6 @@ export function RegisterPage() {
               required
             />
 
-            <Select
-              label="Department"
-              options={departmentOptions}
-              value={form.department}
-              onChange={(event) => setForm((prev) => ({ ...prev, department: event.target.value }))}
-              required
-            />
-
-            <Select
-              label="Role"
-              options={roleOptions}
-              value={form.role}
-              onChange={(event) =>
-                setForm((prev) => ({
-                  ...prev,
-                  role: event.target.value as Exclude<RegisterPayload['role'], 'admin'>,
-                }))
-              }
-              required
-            />
-
             <label className="block space-y-1.5 text-sm sm:col-span-1">
               <span className="font-medium text-slate-700">Password</span>
               <div className="relative">
@@ -220,7 +162,7 @@ export function RegisterPage() {
 
             <div className="sm:col-span-2 space-y-1 text-xs text-slate-500">
               <p>- Password must be at least 6 characters.</p>
-              <p>- Department and role are required for onboarding governance.</p>
+              <p>- Department, role, and supervisor are selected in onboarding after signup.</p>
             </div>
 
             {localError || error ? (

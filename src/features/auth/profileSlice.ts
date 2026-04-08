@@ -23,6 +23,11 @@ export const ensureProfileFromRegisterThunk = createAsyncThunk(
   'profile/ensureRegister',
   async (payload: { uid: string; values: RegisterPayload }) => {
     const now = new Date().toISOString()
+    const isStudent = payload.values.role === 'student'
+
+    if (isStudent && (!payload.values.assignedSupervisorUid || !payload.values.assignedSupervisorName)) {
+      throw new Error('Students must select a supervisor during onboarding.')
+    }
 
     const profile: UserProfile = {
       uid: payload.uid,
@@ -31,6 +36,8 @@ export const ensureProfileFromRegisterThunk = createAsyncThunk(
       photoURL: undefined,
       department: payload.values.department,
       role: payload.values.role,
+      assignedSupervisorUid: isStudent ? payload.values.assignedSupervisorUid || '' : '',
+      assignedSupervisorName: isStudent ? payload.values.assignedSupervisorName || '' : '',
       uploadCleared: payload.values.role !== 'student',
       clearedBySupervisorUid: '',
       clearedBySupervisorName: '',
@@ -53,6 +60,8 @@ export const ensureProfileForAuthUserThunk = createAsyncThunk(
     fullName?: string
     department?: string
     role?: RegisterPayload['role']
+    assignedSupervisorUid?: string
+    assignedSupervisorName?: string
   }) => {
     const existing = await getUserProfile(payload.uid)
 
@@ -62,6 +71,13 @@ export const ensureProfileForAuthUserThunk = createAsyncThunk(
 
     if (!payload.department || !payload.role) {
       throw new Error('Complete your profile by selecting a department and role.')
+    }
+
+    if (
+      payload.role === 'student'
+      && (!payload.assignedSupervisorUid?.trim() || !payload.assignedSupervisorName?.trim())
+    ) {
+      throw new Error('Students must select a supervisor before continuing.')
     }
 
     const now = new Date().toISOString()
@@ -78,6 +94,8 @@ export const ensureProfileForAuthUserThunk = createAsyncThunk(
       photoURL: payload.photoURL,
       department: payload.department || DEPARTMENTS[0],
       role: payload.role || 'student',
+      assignedSupervisorUid: (payload.role || 'student') === 'student' ? payload.assignedSupervisorUid || '' : '',
+      assignedSupervisorName: (payload.role || 'student') === 'student' ? payload.assignedSupervisorName || '' : '',
       uploadCleared: (payload.role || 'student') !== 'student',
       clearedBySupervisorUid: '',
       clearedBySupervisorName: '',

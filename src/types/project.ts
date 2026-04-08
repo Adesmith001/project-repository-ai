@@ -8,7 +8,9 @@ export interface ProjectRecord {
   department: string
   year: number
   supervisor: string
+  supervisorUid: string
   studentName: string
+  studentUid: string
   fileUrl: string
   filePublicId: string
   status: ProjectStatus
@@ -24,7 +26,9 @@ export interface ProjectInput {
   department: string
   year: number
   supervisor: string
+  supervisorUid: string
   studentName: string
+  studentUid: string
   fileUrl: string
   filePublicId: string
   status: ProjectStatus

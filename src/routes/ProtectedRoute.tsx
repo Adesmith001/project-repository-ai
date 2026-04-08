@@ -29,6 +29,10 @@ export function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
     return <Navigate to="/complete-profile" replace />
   }
 
+  if (profile.role === 'student' && !profile.assignedSupervisorUid.trim()) {
+    return <Navigate to="/complete-profile" replace />
+  }
+
   if (allowedRoles && !allowedRoles.includes(profile.role)) {
     return <Navigate to="/dashboard" replace />
   }

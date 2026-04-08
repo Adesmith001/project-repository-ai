@@ -5,6 +5,7 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
+  updateProfile,
 } from 'firebase/auth'
 import type { AppAuthUser, LoginPayload, RegisterPayload } from '../../types'
 import { auth } from '../../lib/firebase'
@@ -58,6 +59,13 @@ export async function register(payload: RegisterPayload) {
   }
 
   const response = await createUserWithEmailAndPassword(auth, payload.email, payload.password)
+
+  const trimmedName = payload.fullName.trim()
+
+  if (trimmedName.length > 0) {
+    await updateProfile(response.user, { displayName: trimmedName })
+  }
+
   return mapAuthUser(response.user)
 }
 

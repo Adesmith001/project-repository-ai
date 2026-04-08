@@ -65,8 +65,11 @@ export function AdminUsersPage() {
 
   const filteredUsers = useMemo(() => {
     const query = searchTerm.trim().toLowerCase()
+    const sourceUsers = profile?.role === 'supervisor'
+      ? users.filter((user) => user.role === 'student' && user.assignedSupervisorUid === profile.uid)
+      : users
 
-    return users
+    return sourceUsers
       .filter((user) => {
         const bySearch =
           query.length === 0 ||
@@ -80,7 +83,7 @@ export function AdminUsersPage() {
         return bySearch && byRole && byDepartment
       })
       .sort((a, b) => a.fullName.localeCompare(b.fullName))
-  }, [users, searchTerm, roleFilter, departmentFilter])
+  }, [users, searchTerm, roleFilter, departmentFilter, profile])
 
   const hasActiveFilters = searchTerm.trim().length > 0 || roleFilter !== 'all' || departmentFilter !== 'all'
 
@@ -92,6 +95,11 @@ export function AdminUsersPage() {
 
   async function onToggleStudentClearance(target: UserProfile) {
     if (!profile || (profile.role !== 'admin' && profile.role !== 'supervisor')) {
+      return
+    }
+
+    if (profile.role === 'supervisor' && target.assignedSupervisorUid !== profile.uid) {
+      setError('You can only clear students assigned to you.')
       return
     }
 
@@ -221,8 +229,12 @@ export function AdminUsersPage() {
     <div className="space-y-6 py-4">
       <SectionHeading
         eyebrow="Admin"
-        title="User administration"
-        description="Role and profile oversight for students, supervisors, and administrators."
+        title={profile?.role === 'supervisor' ? 'Supervisee administration' : 'User administration'}
+        description={
+          profile?.role === 'supervisor'
+            ? 'Review and clear only the students assigned to your supervision roster.'
+            : 'Role and profile oversight for students, supervisors, and administrators.'
+        }
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -358,6 +370,7 @@ export function AdminUsersPage() {
                   <th>Name</th>
                   <th>Email</th>
                   <th>Department</th>
+                  <th>Assigned Supervisor</th>
                   <th>Role</th>
                   <th>Upload Clearance</th>
                   <th>Joined</th>
@@ -378,6 +391,7 @@ export function AdminUsersPage() {
                     </td>
                     <td>{user.email}</td>
                     <td>{user.department}</td>
+                    <td>{user.assignedSupervisorName || '-'}</td>
                     <td>
                       <Badge tone={roleTone[user.role]} className="capitalize">{user.role}</Badge>
                     </td>
@@ -432,7 +446,7 @@ export function AdminUsersPage() {
                         <Button
                           size="sm"
                           variant={user.uploadCleared ? 'secondary' : 'outline'}
-                          disabled={actionUserId === user.uid}
+                          disabled={actionUserId === user.uid || (profile?.role === 'supervisor' && user.assignedSupervisorUid !== profile.uid)}
                           onClick={() => void onToggleStudentClearance(user)}
                         >
                           {user.uploadCleared ? 'Revoke' : 'Clear'}
@@ -446,7 +460,7 @@ export function AdminUsersPage() {
 
                 {filteredUsers.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center text-sm text-slate-500">No users match the current filters.</td>
+                    <td colSpan={9} className="text-center text-sm text-slate-500">No users match the current filters.</td>
                   </tr>
                 ) : null}
               </tbody>

@@ -17,6 +17,10 @@ service cloud.firestore {
       return isSignedIn() && requesterDoc().data != null;
     }
 
+    function supervisorDoc(supervisorUid) {
+      return get(/databases/$(database)/documents/users/$(supervisorUid));
+    }
+
     function isAdmin() {
       return requesterProfileExists() && requesterDoc().data.role == 'admin';
     }
@@ -47,6 +51,41 @@ service cloud.firestore {
       && data.clearanceUpdatedAt is string;
     }
 
+    function hasSupervisorAssignmentShape(data) {
+      return data.assignedSupervisorUid is string
+      && data.assignedSupervisorName is string;
+    }
+
+    function hasOptionalSupervisorAssignmentShape(data) {
+      return (
+        !('assignedSupervisorUid' in data)
+        && !('assignedSupervisorName' in data)
+      ) || hasSupervisorAssignmentShape(data);
+    }
+
+    function hasValidSupervisorAssignment(data) {
+      return !('assignedSupervisorUid' in data)
+      || (
+        hasSupervisorAssignmentShape(data)
+        && (
+          (data.role == 'student'
+            && (
+              (data.assignedSupervisorUid.size() > 0
+                && data.assignedSupervisorName.size() >= 2
+                && supervisorDoc(data.assignedSupervisorUid).data != null
+                && supervisorDoc(data.assignedSupervisorUid).data.role == 'supervisor'
+                && supervisorDoc(data.assignedSupervisorUid).data.fullName == data.assignedSupervisorName)
+              || (isAdmin()
+                && data.assignedSupervisorUid == ''
+                && data.assignedSupervisorName == '')
+            ))
+          || (data.role != 'student'
+            && data.assignedSupervisorUid == ''
+            && data.assignedSupervisorName == '')
+        )
+      );
+    }
+
     function isValidUserProfile(data, userId) {
       return data.keys().hasOnly([
         'uid',
@@ -55,6 +94,8 @@ service cloud.firestore {
         'photoURL',
         'department',
         'role',
+        'assignedSupervisorUid',
+        'assignedSupervisorName',
         'uploadCleared',
         'clearedBySupervisorUid',
         'clearedBySupervisorName',
@@ -75,6 +116,8 @@ service cloud.firestore {
       && data.department.size() <= 120
       && data.role is string
       && isValidRole(data.role)
+      && hasOptionalSupervisorAssignmentShape(data)
+      && hasValidSupervisorAssignment(data)
       && (
         (
           !("uploadCleared" in data)
@@ -91,6 +134,8 @@ service cloud.firestore {
     function canSupervisorUpdateStudentClearance() {
       return isSupervisor()
       && resource.data.role == 'student'
+      && ('assignedSupervisorUid' in resource.data)
+      && resource.data.assignedSupervisorUid == request.auth.uid
       && request.resource.data.role == 'student'
       && request.resource.data.uid == resource.data.uid
       && request.resource.data.email == resource.data.email
@@ -115,6 +160,28 @@ service cloud.firestore {
       );
     }
 
+    function canOwnerSetInitialSupervisorAssignment(userId) {
+      return isOwner(userId)
+      && resource.data.role == 'student'
+      && request.resource.data.role == 'student'
+      && (
+        !('assignedSupervisorUid' in resource.data)
+        || resource.data.assignedSupervisorUid == ''
+      )
+      && request.resource.data.assignedSupervisorUid is string
+      && request.resource.data.assignedSupervisorUid.size() > 0
+      && request.resource.data.assignedSupervisorName is string
+      && request.resource.data.assignedSupervisorName.size() >= 2
+      && supervisorDoc(request.resource.data.assignedSupervisorUid).data != null
+      && supervisorDoc(request.resource.data.assignedSupervisorUid).data.role == 'supervisor'
+      && supervisorDoc(request.resource.data.assignedSupervisorUid).data.fullName == request.resource.data.assignedSupervisorName
+      && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+        'assignedSupervisorUid',
+        'assignedSupervisorName',
+        'updatedAt'
+      ]);
+    }
+
     function isValidKeywords(keywords) {
       return keywords is list
       && keywords.size() > 0
@@ -137,7 +204,9 @@ service cloud.firestore {
         'department',
         'year',
         'supervisor',
+        'supervisorUid',
         'studentName',
+        'studentUid',
         'fileUrl',
         'filePublicId',
         'status',
@@ -161,9 +230,17 @@ service cloud.firestore {
       && data.supervisor is string
       && data.supervisor.size() >= 2
       && data.supervisor.size() <= 120
+      && (
+        !('supervisorUid' in data)
+        || data.supervisorUid is string
+      )
       && data.studentName is string
       && data.studentName.size() >= 2
       && data.studentName.size() <= 120
+      && (
+        !('studentUid' in data)
+        || data.studentUid is string
+      )
       && data.fileUrl is string
       && data.fileUrl.size() > 10
       && data.filePublicId is string
@@ -173,6 +250,39 @@ service cloud.firestore {
       && isValidEmbedding(data.embedding)
       && data.createdAt is string
       && data.updatedAt is string;
+    }
+
+    function canStudentCreateAssignedProject(data) {
+      return isClearedStudent()
+      && data.studentUid is string
+      && data.studentUid == request.auth.uid
+      && data.supervisorUid is string
+      && data.supervisorUid.size() > 0
+      && data.supervisorUid == requesterDoc().data.assignedSupervisorUid
+      && data.supervisor == requesterDoc().data.assignedSupervisorName
+      && data.studentName == requesterDoc().data.fullName
+      && data.status == 'pending';
+    }
+
+    function isSupervisorAssignedToProject(project) {
+      return isSupervisor()
+      && (
+        (('supervisorUid' in project)
+          && project.supervisorUid is string
+          && project.supervisorUid == request.auth.uid)
+        || (project.supervisor is string
+          && project.supervisor == requesterDoc().data.fullName)
+      );
+    }
+
+    function canSupervisorReviewProject() {
+      return isSupervisorAssignedToProject(resource.data)
+      && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+        'status',
+        'updatedAt'
+      ])
+      && isValidProjectStatus(request.resource.data.status)
+      && request.resource.data.createdAt == resource.data.createdAt;
     }
 
     function isValidDepartmentRecord(data) {
@@ -196,6 +306,7 @@ service cloud.firestore {
 
       allow create: if isOwner(userId)
         && isValidUserProfile(request.resource.data, userId)
+        && hasSupervisorAssignmentShape(request.resource.data)
         && hasClearanceShape(request.resource.data)
         && (
           !(request.auth.token.email is string)
@@ -205,9 +316,18 @@ service cloud.firestore {
         && (
           request.resource.data.role != 'student'
           || (
+            request.resource.data.assignedSupervisorUid.size() > 0
+            && request.resource.data.assignedSupervisorName.size() >= 2
             request.resource.data.uploadCleared == false
             && request.resource.data.clearedBySupervisorUid == ''
             && request.resource.data.clearedBySupervisorName == ''
+          )
+        )
+        && (
+          request.resource.data.role != 'supervisor'
+          || (
+            request.resource.data.assignedSupervisorUid == ''
+            && request.resource.data.assignedSupervisorName == ''
           )
         );
 
@@ -217,17 +337,21 @@ service cloud.firestore {
         && request.resource.data.uid == resource.data.uid
         && request.resource.data.email == resource.data.email
         && request.resource.data.role == resource.data.role
+        && request.resource.data.assignedSupervisorUid == resource.data.assignedSupervisorUid
+        && request.resource.data.assignedSupervisorName == resource.data.assignedSupervisorName
         && request.resource.data.uploadCleared == resource.data.uploadCleared
         && request.resource.data.clearedBySupervisorUid == resource.data.clearedBySupervisorUid
         && request.resource.data.clearedBySupervisorName == resource.data.clearedBySupervisorName
         && request.resource.data.clearanceUpdatedAt == resource.data.clearanceUpdatedAt
         && request.resource.data.createdAt == resource.data.createdAt
-      ) || (
+      ) || canOwnerSetInitialSupervisorAssignment(userId) || (
         isAdmin()
         && isValidUserProfile(request.resource.data, userId)
         && request.resource.data.uid == resource.data.uid
         && request.resource.data.email == resource.data.email
-      ) || canSupervisorUpdateStudentClearance();
+      ) || (
+        canSupervisorUpdateStudentClearance()
+      );
 
       allow delete: if isAdmin();
     }
@@ -235,14 +359,20 @@ service cloud.firestore {
     match /projects/{projectId} {
       allow get, list: if isSignedIn();
 
-      allow create: if (isAdmin() || isSupervisor() || isClearedStudent())
-        && isValidProjectRecord(request.resource.data);
-
-      allow update: if (isAdmin() || isSupervisor())
+      allow create: if (
+        (isAdmin() || isSupervisor())
         && isValidProjectRecord(request.resource.data)
-        && request.resource.data.createdAt == resource.data.createdAt;
+      ) || (
+        canStudentCreateAssignedProject(request.resource.data)
+        && isValidProjectRecord(request.resource.data)
+      );
 
-      allow delete: if isAdmin() || isSupervisor();
+      allow update: if isAdmin()
+        && isValidProjectRecord(request.resource.data)
+        && request.resource.data.createdAt == resource.data.createdAt
+      || canSupervisorReviewProject();
+
+      allow delete: if isAdmin();
     }
 
     match /departments/{departmentId} {

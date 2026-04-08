@@ -12,7 +12,7 @@ import { ErrorState } from '../components/states/ErrorState'
 import { LoadingState } from '../components/states/LoadingState'
 import { useAppDispatch, useAppSelector } from '../hooks/useAppStore'
 import { useDepartments } from '../hooks/useDepartments'
-import { removeProject, listProjects } from '../features/projects/projectService'
+import { removeProject, listProjects, updateProjectStatus } from '../features/projects/projectService'
 import { resetProjectFilters, setProjectFilter } from '../features/projects/projectFilterSlice'
 import { formatDate } from '../utils/date'
 import type { ProjectRecord } from '../types'
@@ -27,6 +27,7 @@ export function ProjectsPage() {
   const [allProjects, setAllProjects] = useState<ProjectRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [actionProjectId, setActionProjectId] = useState<string | null>(null)
 
   useEffect(() => {
     let mounted = true
@@ -70,6 +71,44 @@ export function ProjectsPage() {
       setProjects(refreshed)
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : 'Unable to delete project.')
+    }
+  }
+
+  function canSupervisorReview(project: ProjectRecord) {
+    if (!profile || profile.role !== 'supervisor') {
+      return false
+    }
+
+    const hasUidMatch = project.supervisorUid.trim().length > 0 && project.supervisorUid === profile.uid
+    const hasNameMatch = project.supervisor.trim().toLowerCase() === profile.fullName.trim().toLowerCase()
+
+    return hasUidMatch || hasNameMatch
+  }
+
+  async function onReview(project: ProjectRecord, nextStatus: ProjectRecord['status']) {
+    if (!profile || (profile.role !== 'supervisor' && profile.role !== 'admin')) {
+      return
+    }
+
+    try {
+      setActionProjectId(project.id)
+
+      await updateProjectStatus({
+        projectId: project.id,
+        status: nextStatus,
+        actor: {
+          uid: profile.uid,
+          fullName: profile.fullName,
+          role: profile.role,
+        },
+      })
+
+      const refreshed = await listProjects(filters)
+      setProjects(refreshed)
+    } catch (reviewError) {
+      setError(reviewError instanceof Error ? reviewError.message : 'Unable to update review status.')
+    } finally {
+      setActionProjectId(null)
     }
   }
 
@@ -273,8 +312,42 @@ export function ProjectsPage() {
                         <Link to={`/projects/${project.id}`}>
                           <Button size="sm" variant="outline">Open</Button>
                         </Link>
+                        {profile?.role === 'supervisor' && canSupervisorReview(project) ? (
+                          <>
+                            {project.status !== 'approved' ? (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                disabled={actionProjectId === project.id}
+                                onClick={() => void onReview(project, 'approved')}
+                              >
+                                Approve
+                              </Button>
+                            ) : null}
+                            {project.status !== 'rejected' ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={actionProjectId === project.id}
+                                onClick={() => void onReview(project, 'rejected')}
+                              >
+                                Reject
+                              </Button>
+                            ) : null}
+                          </>
+                        ) : null}
                         {profile?.role === 'admin' ? (
                           <>
+                            {project.status === 'pending' ? (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                disabled={actionProjectId === project.id}
+                                onClick={() => void onReview(project, 'approved')}
+                              >
+                                Approve
+                              </Button>
+                            ) : null}
                             <Link to={`/upload-project?edit=${project.id}`}>
                               <Button size="sm" variant="secondary">Edit</Button>
                             </Link>

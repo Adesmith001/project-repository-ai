@@ -76,6 +76,14 @@ export function SettingsProfilePage() {
               Roles are managed by administrators in Firestore to maintain institutional control.
             </p>
           </div>
+          {profile?.role === 'student' ? (
+            <div className="soft-panel p-4 sm:col-span-2">
+              <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Assigned Supervisor</p>
+              <p className="mt-2 text-sm font-semibold text-slate-900">
+                {profile.assignedSupervisorName || 'Not assigned'}
+              </p>
+            </div>
+          ) : null}
         </div>
       </Card>
     </div>

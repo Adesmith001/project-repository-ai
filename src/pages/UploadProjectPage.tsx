@@ -12,7 +12,7 @@ import { DEFAULT_DEPARTMENT } from '../lib/constants'
 import { uploadPdfToCloudinary } from '../lib/cloudinary'
 import { extractProjectMetadataFromPdf } from '../features/projects/documentExtractionService'
 import { createProject, getProjectById, updateProject } from '../features/projects/projectService'
-import { listUserProfiles } from '../features/auth/profileService'
+import { listSupervisorProfiles } from '../features/auth/profileService'
 import { useAppSelector } from '../hooks/useAppStore'
 import { useDepartments } from '../hooks/useDepartments'
 import { parseKeywordInput } from '../utils/parsers'
@@ -39,7 +39,9 @@ export function UploadProjectPage() {
     department: DEFAULT_DEPARTMENT,
     year: new Date().getFullYear(),
     supervisor: '',
+    supervisorUid: '',
     studentName: '',
+    studentUid: '',
     fileUrl: '',
     filePublicId: '',
     status: 'pending',
@@ -51,7 +53,7 @@ export function UploadProjectPage() {
   const [error, setError] = useState('')
   const [extractionMessage, setExtractionMessage] = useState('')
   const [extractingMetadata, setExtractingMetadata] = useState(false)
-  const [supervisorOptions, setSupervisorOptions] = useState<Array<{ value: string; label: string }>>([])
+  const [supervisorOptions, setSupervisorOptions] = useState<Array<{ value: string; label: string; name: string }>>([])
   const [loadingSupervisors, setLoadingSupervisors] = useState(true)
 
   useEffect(() => {
@@ -75,7 +77,9 @@ export function UploadProjectPage() {
         department: record.department,
         year: record.year,
         supervisor: record.supervisor,
+        supervisorUid: record.supervisorUid,
         studentName: record.studentName,
+        studentUid: record.studentUid,
         fileUrl: record.fileUrl,
         filePublicId: record.filePublicId,
         status: record.status,
@@ -105,31 +109,73 @@ export function UploadProjectPage() {
 
     setForm((prev) => {
       if (profile.role === 'student') {
-        return prev.studentName === profile.fullName
+        return prev.studentName === profile.fullName && prev.studentUid === profile.uid
           ? prev
-          : { ...prev, studentName: profile.fullName }
+          : { ...prev, studentName: profile.fullName, studentUid: profile.uid }
       }
 
       return prev.studentName.trim() ? prev : { ...prev, studentName: profile.fullName }
     })
-  }, [profile?.fullName, profile?.role])
+  }, [profile?.fullName, profile?.role, profile?.uid])
+
+  useEffect(() => {
+    if (profile?.role !== 'student') {
+      return
+    }
+
+    setForm((prev) => {
+      if (
+        prev.supervisorUid === profile.assignedSupervisorUid
+        && prev.supervisor === profile.assignedSupervisorName
+      ) {
+        return prev
+      }
+
+      return {
+        ...prev,
+        supervisorUid: profile.assignedSupervisorUid,
+        supervisor: profile.assignedSupervisorName,
+      }
+    })
+  }, [profile?.assignedSupervisorName, profile?.assignedSupervisorUid, profile?.role])
 
   useEffect(() => {
     let mounted = true
 
     async function loadSupervisors() {
       try {
-        const users = await listUserProfiles()
-        const supervisors = users
-          .filter((user) => user.role === 'supervisor')
-          .map((user) => ({ value: user.fullName, label: user.fullName }))
+        const users = await listSupervisorProfiles()
+        const supervisors = users.map((user) => ({
+          value: user.uid,
+          label: user.fullName,
+          name: user.fullName,
+        }))
 
         if (mounted) {
           setSupervisorOptions(supervisors)
 
-          if (supervisors.length > 0) {
-            setForm((prev) => (prev.supervisor.trim() ? prev : { ...prev, supervisor: supervisors[0].value }))
-          }
+          setForm((prev) => {
+            if (profile?.role === 'student') {
+              return prev
+            }
+
+            if (prev.supervisorUid.trim()) {
+              return prev
+            }
+
+            const matchedByName = supervisors.find((item) => item.name === prev.supervisor)
+            const fallback = matchedByName || supervisors[0]
+
+            if (!fallback) {
+              return prev
+            }
+
+            return {
+              ...prev,
+              supervisorUid: fallback.value,
+              supervisor: fallback.name,
+            }
+          })
         }
       } catch {
         if (mounted) {
@@ -147,7 +193,7 @@ export function UploadProjectPage() {
     return () => {
       mounted = false
     }
-  }, [])
+  }, [profile?.role])
 
   async function onUploadFilesChange(files: File[]) {
     const file = files[0] ?? null
@@ -200,6 +246,10 @@ export function UploadProjectPage() {
         throw new Error('You can upload only after your supervisor/admin clears you.')
       }
 
+      if (profile?.role === 'student' && !profile.assignedSupervisorUid.trim()) {
+        throw new Error('Complete onboarding by selecting a supervisor before uploading.')
+      }
+
       const keywords = parseKeywordInput(keywordText)
       const payload: ProjectInput = {
         ...form,
@@ -208,7 +258,18 @@ export function UploadProjectPage() {
 
       if (profile?.role === 'student') {
         payload.studentName = profile.fullName || payload.studentName
+        payload.studentUid = profile.uid
+        payload.supervisorUid = profile.assignedSupervisorUid
+        payload.supervisor = profile.assignedSupervisorName
         payload.status = 'pending'
+      }
+
+      if (!payload.supervisorUid.trim() || !payload.supervisor.trim()) {
+        throw new Error('Select a valid supervisor before saving this project.')
+      }
+
+      if (profile?.role === 'student' && !payload.studentUid.trim()) {
+        throw new Error('Student identity is missing. Please sign in again and retry.')
       }
 
       if (selectedFile) {
@@ -250,6 +311,12 @@ export function UploadProjectPage() {
       {profile?.role === 'student' && !profile.uploadCleared ? (
         <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           You are currently pending supervisor/admin clearance. Upload is enabled once you are cleared.
+        </p>
+      ) : null}
+
+      {profile?.role === 'student' && !profile.assignedSupervisorUid ? (
+        <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          No supervisor is assigned to your profile yet. Complete onboarding before uploading a project.
         </p>
       ) : null}
 
@@ -307,7 +374,14 @@ export function UploadProjectPage() {
                 required
               />
 
-              {loadingSupervisors ? (
+              {profile?.role === 'student' ? (
+                <Input
+                  label="Supervisor"
+                  value={profile.assignedSupervisorName || form.supervisor}
+                  disabled
+                  required
+                />
+              ) : loadingSupervisors ? (
                 <Input
                   label="Supervisor"
                   value={form.supervisor}
@@ -320,17 +394,28 @@ export function UploadProjectPage() {
                 <Select
                   label="Supervisor"
                   options={supervisorOptions}
-                  value={form.supervisor}
-                  onChange={(event) => setForm((prev) => ({ ...prev, supervisor: event.target.value }))}
+                  value={form.supervisorUid}
+                  onChange={(event) => {
+                    const selected = supervisorOptions.find((item) => item.value === event.target.value)
+
+                    if (!selected) {
+                      return
+                    }
+
+                    setForm((prev) => ({
+                      ...prev,
+                      supervisorUid: selected.value,
+                      supervisor: selected.name,
+                    }))
+                  }}
                   required
                 />
               ) : (
                 <Input
                   label="Supervisor"
-                  value={form.supervisor}
-                  onChange={(event) => setForm((prev) => ({ ...prev, supervisor: event.target.value }))}
-                  placeholder="No supervisor accounts found, type name manually"
-                  required
+                  value=""
+                  placeholder="No supervisor accounts available"
+                  disabled
                 />
               )}
 
@@ -425,8 +510,23 @@ export function UploadProjectPage() {
             </p>
           ) : null}
 
+          {!loadingSupervisors && supervisorOptions.length === 0 ? (
+            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+              At least one supervisor account must exist before project submission.
+            </p>
+          ) : null}
+
           <div className="flex flex-wrap gap-2">
-            <Button size="lg" type="submit" disabled={loading || (profile?.role === 'student' && !profile.uploadCleared)}>
+            <Button
+              size="lg"
+              type="submit"
+              disabled={
+                loading
+                || (!loadingSupervisors && supervisorOptions.length === 0)
+                || (profile?.role === 'student' && !profile.uploadCleared)
+                || (profile?.role === 'student' && !profile?.assignedSupervisorUid)
+              }
+            >
               {loading ? 'Saving...' : editingId ? 'Update project' : 'Create project'}
             </Button>
             <Button type="button" variant="secondary" onClick={() => navigate('/projects')}>
