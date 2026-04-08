@@ -410,6 +410,11 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /users/{userId}/topicCheckSessions/{sessionId} {
+      allow get, list: if isOwner(userId) || isAdmin();
+      allow create, update, delete: if isOwner(userId) || isAdmin();
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

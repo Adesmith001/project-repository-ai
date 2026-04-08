@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, SlidersHorizontal } from 'lucide-react'
+import { Bot, Search, SlidersHorizontal } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { Card } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
 import { Textarea } from '../components/ui/Textarea'
@@ -10,18 +12,23 @@ import { Badge } from '../components/ui/Badge'
 import { SectionHeading } from '../components/ui/SectionHeading'
 import { useAppDispatch, useAppSelector } from '../hooks/useAppStore'
 import { useErrorToast } from '../hooks/useErrorToast'
-import { askTopicFollowUp } from '../features/topicChecker/topicCheckerService'
+import {
+  appendTopicCheckMessage,
+  askTopicFollowUp,
+  createTopicCheckSession,
+  getLatestStudentPdfContext,
+  subscribeTopicCheckSessions,
+} from '../features/topicChecker/topicCheckerService'
 import { runTopicCheckThunk } from '../features/topicChecker/topicCheckerSlice'
+import type { TopicChatMessage, TopicCheckSessionRecord } from '../types'
 import { parseKeywordInput } from '../utils/parsers'
 
-interface ChatMessage {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-}
+const INITIAL_ASSISTANT_CHAT_MESSAGE =
+  'Similarity analysis is complete. Ask me about overlap risk, novelty improvements, or how to reshape your topic before final submission.'
 
 export function CheckTopicPage() {
   const dispatch = useAppDispatch()
+  const authUser = useAppSelector((state) => state.auth.user)
   const { result, status, error, latestInput } = useAppSelector((state) => state.topicChecker)
 
   const [proposedTitle, setProposedTitle] = useState('')
@@ -29,70 +36,133 @@ export function CheckTopicPage() {
   const [keywordsText, setKeywordsText] = useState('')
   const [matchesSearch, setMatchesSearch] = useState('')
   const [minScoreFilter, setMinScoreFilter] = useState<'all' | '0.5' | '0.7' | '0.85'>('all')
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const [sessions, setSessions] = useState<TopicCheckSessionRecord[]>([])
+  const [activeSessionId, setActiveSessionId] = useState('')
+  const [loadingHistory, setLoadingHistory] = useState(false)
   const [chatLoading, setChatLoading] = useState(false)
   const [chatError, setChatError] = useState('')
 
   useErrorToast(error || chatError)
 
   useEffect(() => {
-    if (!result) {
-      setChatMessages([])
+    if (!authUser?.uid) {
+      setSessions([])
+      setActiveSessionId('')
+      setLoadingHistory(false)
       setChatError('')
       return
     }
 
-    setChatMessages([
-      {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content:
-          'Similarity analysis is complete. Ask me about overlap risk, novelty improvements, or how to reshape your topic before final submission.',
+    setLoadingHistory(true)
+
+    const unsubscribe = subscribeTopicCheckSessions(
+      authUser.uid,
+      (nextSessions) => {
+        setSessions(nextSessions)
+        setLoadingHistory(false)
+        setActiveSessionId((previousId) => {
+          if (previousId && nextSessions.some((session) => session.id === previousId)) {
+            return previousId
+          }
+
+          return nextSessions[0]?.id || ''
+        })
       },
-    ])
-    setChatError('')
-  }, [result])
+      (historyError) => {
+        setLoadingHistory(false)
+        setChatError(historyError.message || 'Unable to refresh topic chat history.')
+      },
+    )
+
+    return () => {
+      unsubscribe()
+    }
+  }, [authUser?.uid])
+
+  const activeSession = useMemo(() => {
+    return sessions.find((session) => session.id === activeSessionId) || null
+  }, [sessions, activeSessionId])
+
+  const displayResult = activeSession?.result || result
+  const activeInput = activeSession?.input || latestInput
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    setChatMessages([])
     setChatError('')
 
-    await dispatch(
-      runTopicCheckThunk({
-        proposedTitle,
-        proposedDescription,
-        optionalKeywords: parseKeywordInput(keywordsText),
-      }),
-    )
-  }
+    const input = {
+      proposedTitle,
+      proposedDescription,
+      optionalKeywords: parseKeywordInput(keywordsText),
+    }
 
-  async function onChatSubmit(question: string) {
-    if (!result || !latestInput || chatLoading) {
+    const action = await dispatch(runTopicCheckThunk(input))
+
+    if (!runTopicCheckThunk.fulfilled.match(action)) {
       return
     }
 
-    const userMessage: ChatMessage = {
+    if (!authUser?.uid) {
+      return
+    }
+
+    try {
+      const pdfContext = await getLatestStudentPdfContext(authUser.uid)
+      const session = await createTopicCheckSession({
+        userUid: authUser.uid,
+        input,
+        result: action.payload,
+        initialAssistantMessage: INITIAL_ASSISTANT_CHAT_MESSAGE,
+        pdfContext,
+      })
+
+      setActiveSessionId(session.id)
+    } catch (sessionError) {
+      setChatError(
+        sessionError instanceof Error ? sessionError.message : 'Unable to save topic chat history for this check.',
+      )
+    }
+  }
+
+  async function onChatSubmit(question: string) {
+    if (!authUser?.uid || !activeSession || !activeInput || chatLoading) {
+      return
+    }
+
+    const userMessage: TopicChatMessage = {
       id: crypto.randomUUID(),
       role: 'user',
       content: question,
+      createdAt: new Date().toISOString(),
     }
 
-    setChatMessages((prev) => [...prev, userMessage])
     setChatLoading(true)
     setChatError('')
 
     try {
-      const answer = await askTopicFollowUp(latestInput, result, question)
+      await appendTopicCheckMessage({
+        userUid: authUser.uid,
+        sessionId: activeSession.id,
+        message: userMessage,
+      })
 
-      setChatMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          content: answer,
-        },
-      ])
+      const answer = await askTopicFollowUp(activeInput, activeSession.result, question, {
+        conversationHistory: [...activeSession.messages, userMessage],
+        pdfContext: activeSession.pdfContext,
+      })
+
+      const assistantMessage: TopicChatMessage = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: answer,
+        createdAt: new Date().toISOString(),
+      }
+
+      await appendTopicCheckMessage({
+        userUid: authUser.uid,
+        sessionId: activeSession.id,
+        message: assistantMessage,
+      })
     } catch (followUpError) {
       setChatError(
         followUpError instanceof Error ? followUpError.message : 'Unable to run AI follow-up chat at the moment.',
@@ -103,14 +173,14 @@ export function CheckTopicPage() {
   }
 
   const filteredMatches = useMemo(() => {
-    if (!result) {
+    if (!displayResult) {
       return []
     }
 
     const query = matchesSearch.trim().toLowerCase()
     const minScore = minScoreFilter === 'all' ? 0 : Number(minScoreFilter)
 
-    return result.matches.filter((match) => {
+    return displayResult.matches.filter((match) => {
       const bySearch =
         query.length === 0 ||
         match.project.title.toLowerCase().includes(query) ||
@@ -121,7 +191,7 @@ export function CheckTopicPage() {
 
       return bySearch && byScore
     })
-  }, [result, matchesSearch, minScoreFilter])
+  }, [displayResult, matchesSearch, minScoreFilter])
 
   return (
     <div className="space-y-6 py-4">
@@ -168,31 +238,31 @@ export function CheckTopicPage() {
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
       ) : null}
 
-      {result ? (
+      {displayResult ? (
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <Card className="p-5" hover>
               <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Duplication risk</p>
-              <Badge className="mt-3 inline-flex capitalize" tone={result.risk === 'high' ? 'warning' : result.risk === 'medium' ? 'default' : 'success'}>
-                {result.risk}
+              <Badge className="mt-3 inline-flex capitalize" tone={displayResult.risk === 'high' ? 'warning' : displayResult.risk === 'medium' ? 'default' : 'success'}>
+                {displayResult.risk}
               </Badge>
             </Card>
 
             <Card className="p-5" hover>
               <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Matches found</p>
-              <p className="mt-2 text-3xl font-extrabold text-slate-950">{result.matches.length}</p>
+              <p className="mt-2 text-3xl font-extrabold text-slate-950">{displayResult.matches.length}</p>
             </Card>
 
             <Card className="p-5" hover>
               <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Top similarity</p>
               <p className="mt-2 text-3xl font-extrabold text-slate-950">
-                {result.matches[0] ? `${(result.matches[0].similarityScore * 100).toFixed(1)}%` : '0%'}
+                {displayResult.matches[0] ? `${(displayResult.matches[0].similarityScore * 100).toFixed(1)}%` : '0%'}
               </p>
             </Card>
 
             <Card className="p-5" hover>
               <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Novelty summary</p>
-              <p className="mt-2 line-clamp-2 text-sm text-slate-700">{result.recommendation.noveltyAssessment}</p>
+              <p className="mt-2 line-clamp-2 text-sm text-slate-700">{displayResult.recommendation.noveltyAssessment}</p>
             </Card>
           </div>
 
@@ -298,16 +368,16 @@ export function CheckTopicPage() {
             <div className="mt-3 space-y-4 text-sm text-slate-700">
               <div className="soft-panel p-4">
                 <p className="font-bold text-slate-900">Novelty assessment</p>
-                <p>{result.recommendation.noveltyAssessment}</p>
+                <p>{displayResult.recommendation.noveltyAssessment}</p>
               </div>
               <div className="soft-panel p-4">
                 <p className="font-bold text-slate-900">Overlap explanation</p>
-                <p>{result.recommendation.overlapExplanation}</p>
+                <p>{displayResult.recommendation.overlapExplanation}</p>
               </div>
               <div className="soft-panel p-4">
                 <p className="font-semibold text-slate-900">Refinement suggestions</p>
                 <ul className="ml-5 list-disc space-y-1">
-                  {result.recommendation.refinementSuggestions.map((item) => (
+                  {displayResult.recommendation.refinementSuggestions.map((item) => (
                     <li key={item}>{item}</li>
                   ))}
                 </ul>
@@ -315,7 +385,7 @@ export function CheckTopicPage() {
               <div className="soft-panel p-4">
                 <p className="font-semibold text-slate-900">Alternative topics</p>
                 <ul className="ml-5 list-disc space-y-1">
-                  {result.recommendation.alternativeTopics.map((item) => (
+                  {displayResult.recommendation.alternativeTopics.map((item) => (
                     <li key={item}>{item}</li>
                   ))}
                 </ul>
@@ -323,7 +393,7 @@ export function CheckTopicPage() {
               <div className="soft-panel p-4">
                 <p className="font-semibold text-slate-900">Research gaps</p>
                 <ul className="ml-5 list-disc space-y-1">
-                  {result.recommendation.researchGaps.map((item) => (
+                  {displayResult.recommendation.researchGaps.map((item) => (
                     <li key={item}>{item}</li>
                   ))}
                 </ul>
@@ -337,33 +407,102 @@ export function CheckTopicPage() {
               Continue with follow-up questions about overlap, novelty gaps, and practical revision strategy.
             </p>
 
-            <div className="mt-4 space-y-3">
-              <div className="max-h-96 space-y-3 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-                {chatMessages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`max-w-[88%] rounded-xl px-3 py-2 text-sm ${
-                      message.role === 'user'
-                        ? 'ml-auto bg-slate-900 text-white'
-                        : 'bg-white text-slate-800 border border-slate-200'
-                    }`}
-                  >
-                    {message.content}
-                  </div>
-                ))}
+            <div className="mt-4 grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
+              <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Conversation history</p>
+
+                <div className="mt-3 max-h-96 space-y-2 overflow-y-auto pr-1">
+                  {loadingHistory && sessions.length === 0 ? (
+                    <p className="text-sm text-slate-500">Loading history...</p>
+                  ) : null}
+
+                  {!loadingHistory && sessions.length === 0 ? (
+                    <p className="text-sm text-slate-500">Run a topic check to create your first conversation.</p>
+                  ) : null}
+
+                  {sessions.map((session) => {
+                    const active = session.id === activeSessionId
+
+                    return (
+                      <button
+                        key={session.id}
+                        type="button"
+                        onClick={() => setActiveSessionId(session.id)}
+                        className={`w-full rounded-lg border px-3 py-2 text-left transition ${
+                          active
+                            ? 'border-slate-900 bg-slate-900 text-white'
+                            : 'border-slate-200 bg-white text-slate-800 hover:border-slate-300'
+                        }`}
+                      >
+                        <p className="line-clamp-2 text-sm font-semibold">
+                          {session.input.proposedTitle || 'Untitled topic check'}
+                        </p>
+                        <p className={`mt-1 text-xs ${active ? 'text-slate-300' : 'text-slate-500'}`}>
+                          {new Date(session.updatedAt).toLocaleString()} · {session.messages.length} messages
+                        </p>
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
 
-              <PromptInput
-                placeholder="Ask the AI about your topic overlap and improvements..."
-                disabled={chatLoading}
-                onSubmit={(value) => {
-                  void onChatSubmit(value)
-                }}
-              />
+              <div className="space-y-3">
+                <div className="max-h-96 space-y-3 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                  {(activeSession?.messages || []).map((message) => (
+                    <div
+                      key={message.id}
+                      className={`max-w-[92%] rounded-xl px-3 py-2 text-sm ${
+                        message.role === 'user'
+                          ? 'ml-auto bg-slate-900 text-white'
+                          : 'border border-slate-200 bg-white text-slate-800'
+                      }`}
+                    >
+                      {message.role === 'assistant' ? (
+                        <div className="leading-6 [&_a]:font-semibold [&_a]:text-teal-700 [&_code]:rounded [&_code]:bg-slate-100 [&_code]:px-1 [&_code]:py-0.5 [&_li]:ml-4 [&_ol]:list-decimal [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:list-disc">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {message.content}
+                          </ReactMarkdown>
+                        </div>
+                      ) : (
+                        <p>{message.content}</p>
+                      )}
+                    </div>
+                  ))}
 
-              {chatLoading ? (
-                <p className="text-xs text-slate-500">AI is generating a response...</p>
-              ) : null}
+                  {chatLoading ? (
+                    <div className="max-w-[88%] rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-700 shadow-sm">
+                      <div className="flex items-center gap-2">
+                        <Bot size={14} className="text-teal-600" />
+                        <div className="flex items-center gap-1">
+                          <span className="h-2 w-2 animate-bounce rounded-full bg-teal-500 [animation-delay:-0.3s]" />
+                          <span className="h-2 w-2 animate-bounce rounded-full bg-teal-500 [animation-delay:-0.15s]" />
+                          <span className="h-2 w-2 animate-bounce rounded-full bg-teal-500" />
+                        </div>
+                        <p className="text-xs text-slate-500">AI is thinking...</p>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+
+                <PromptInput
+                  placeholder={
+                    activeSession
+                      ? 'Ask the AI about your topic overlap and improvements...'
+                      : 'Run a topic check and select a conversation to continue...'
+                  }
+                  disabled={chatLoading || !activeSession}
+                  onSubmit={(value) => {
+                    void onChatSubmit(value)
+                  }}
+                />
+
+                {activeSession?.pdfContext ? (
+                  <p className="flex items-center gap-2 text-xs text-teal-700">
+                    <Bot size={12} />
+                    PDF context is connected to this conversation.
+                  </p>
+                ) : null}
+              </div>
             </div>
           </Card>
         </>

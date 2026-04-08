@@ -26,3 +26,21 @@ export interface TopicCheckResult {
   risk: DuplicationRisk
   recommendation: TopicRecommendation
 }
+
+export interface TopicChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  createdAt: string
+}
+
+export interface TopicCheckSessionRecord {
+  id: string
+  userUid: string
+  input: TopicCheckInput
+  result: TopicCheckResult
+  messages: TopicChatMessage[]
+  pdfContext: string
+  createdAt: string
+  updatedAt: string
+}
