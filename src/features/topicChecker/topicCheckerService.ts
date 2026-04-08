@@ -1,4 +1,4 @@
-import { createEmbedding, generateGroundedRecommendation } from '../../lib/gemini'
+import { createEmbedding, generateGroundedRecommendation, generateTopicFollowUpResponse } from '../../lib/gemini'
 import type { TopicCheckInput, TopicCheckResult } from '../../types'
 import { buildSemanticQuery } from '../../utils/parsers'
 import { riskFromSimilarity } from '../../utils/risk'
@@ -27,4 +27,16 @@ export async function runTopicCheck(input: TopicCheckInput): Promise<TopicCheckR
     risk,
     recommendation,
   }
+}
+
+export async function askTopicFollowUp(
+  input: TopicCheckInput,
+  result: TopicCheckResult,
+  question: string,
+) {
+  return generateTopicFollowUpResponse({
+    question,
+    input,
+    result,
+  })
 }

@@ -1,31 +1,62 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Search, SlidersHorizontal } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
 import { Textarea } from '../components/ui/Textarea'
 import { Button } from '../components/ui/Button'
+import { PromptInput } from '../components/ui/ai-chat-input'
 import { Badge } from '../components/ui/Badge'
 import { SectionHeading } from '../components/ui/SectionHeading'
 import { useAppDispatch, useAppSelector } from '../hooks/useAppStore'
 import { useErrorToast } from '../hooks/useErrorToast'
+import { askTopicFollowUp } from '../features/topicChecker/topicCheckerService'
 import { runTopicCheckThunk } from '../features/topicChecker/topicCheckerSlice'
 import { parseKeywordInput } from '../utils/parsers'
 
+interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+}
+
 export function CheckTopicPage() {
   const dispatch = useAppDispatch()
-  const { result, status, error } = useAppSelector((state) => state.topicChecker)
+  const { result, status, error, latestInput } = useAppSelector((state) => state.topicChecker)
 
   const [proposedTitle, setProposedTitle] = useState('')
   const [proposedDescription, setProposedDescription] = useState('')
   const [keywordsText, setKeywordsText] = useState('')
   const [matchesSearch, setMatchesSearch] = useState('')
   const [minScoreFilter, setMinScoreFilter] = useState<'all' | '0.5' | '0.7' | '0.85'>('all')
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const [chatLoading, setChatLoading] = useState(false)
+  const [chatError, setChatError] = useState('')
 
-  useErrorToast(error)
+  useErrorToast(error || chatError)
+
+  useEffect(() => {
+    if (!result) {
+      setChatMessages([])
+      setChatError('')
+      return
+    }
+
+    setChatMessages([
+      {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content:
+          'Similarity analysis is complete. Ask me about overlap risk, novelty improvements, or how to reshape your topic before final submission.',
+      },
+    ])
+    setChatError('')
+  }, [result])
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    setChatMessages([])
+    setChatError('')
 
     await dispatch(
       runTopicCheckThunk({
@@ -34,6 +65,41 @@ export function CheckTopicPage() {
         optionalKeywords: parseKeywordInput(keywordsText),
       }),
     )
+  }
+
+  async function onChatSubmit(question: string) {
+    if (!result || !latestInput || chatLoading) {
+      return
+    }
+
+    const userMessage: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: question,
+    }
+
+    setChatMessages((prev) => [...prev, userMessage])
+    setChatLoading(true)
+    setChatError('')
+
+    try {
+      const answer = await askTopicFollowUp(latestInput, result, question)
+
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: answer,
+        },
+      ])
+    } catch (followUpError) {
+      setChatError(
+        followUpError instanceof Error ? followUpError.message : 'Unable to run AI follow-up chat at the moment.',
+      )
+    } finally {
+      setChatLoading(false)
+    }
   }
 
   const filteredMatches = useMemo(() => {
@@ -262,6 +328,42 @@ export function CheckTopicPage() {
                   ))}
                 </ul>
               </div>
+            </div>
+          </Card>
+
+          <Card className="p-6">
+            <h3 className="text-lg font-extrabold text-slate-950">Ask AI about this similarity result</h3>
+            <p className="mt-1 text-sm text-slate-600">
+              Continue with follow-up questions about overlap, novelty gaps, and practical revision strategy.
+            </p>
+
+            <div className="mt-4 space-y-3">
+              <div className="max-h-96 space-y-3 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                {chatMessages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={`max-w-[88%] rounded-xl px-3 py-2 text-sm ${
+                      message.role === 'user'
+                        ? 'ml-auto bg-slate-900 text-white'
+                        : 'bg-white text-slate-800 border border-slate-200'
+                    }`}
+                  >
+                    {message.content}
+                  </div>
+                ))}
+              </div>
+
+              <PromptInput
+                placeholder="Ask the AI about your topic overlap and improvements..."
+                disabled={chatLoading}
+                onSubmit={(value) => {
+                  void onChatSubmit(value)
+                }}
+              />
+
+              {chatLoading ? (
+                <p className="text-xs text-slate-500">AI is generating a response...</p>
+              ) : null}
             </div>
           </Card>
         </>
