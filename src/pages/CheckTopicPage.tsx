@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Bot, Search, SlidersHorizontal } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import toast from 'react-hot-toast'
 import { Card } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
 import { Textarea } from '../components/ui/Textarea'
@@ -102,6 +103,13 @@ export function CheckTopicPage() {
       return
     }
 
+    const topSimilarity = action.payload.matches[0]?.similarityScore
+    toast.success(
+      topSimilarity
+        ? `Topic check complete. Top similarity: ${(topSimilarity * 100).toFixed(1)}%`
+        : 'Topic check complete. No close match found.',
+    )
+
     if (!authUser?.uid) {
       return
     }
@@ -194,7 +202,7 @@ export function CheckTopicPage() {
   }, [displayResult, matchesSearch, minScoreFilter])
 
   return (
-    <div className="space-y-6 py-4">
+    <div className="space-y-6 pt-4 pb-2">
       <SectionHeading
         eyebrow="Topic Intelligence"
         title="Evaluate originality before committing"

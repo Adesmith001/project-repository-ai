@@ -64,7 +64,7 @@ export function Sidebar({ role }: SidebarProps) {
   const adminItems = visibleItems.filter((item) => item.to === '/upload-project' || item.to === '/admin/users')
 
   return (
-    <aside className="m-4 flex h-[calc(100vh-2rem)] w-64 flex-col rounded-[28px] border border-slate-200 bg-white p-4 shadow-[0_20px_48px_rgba(15,23,42,0.08)]">
+    <aside className="m-4 flex h-[calc(100dvh-2rem)] w-64 flex-col rounded-[28px] border border-slate-200 bg-white p-4 shadow-[0_20px_48px_rgba(15,23,42,0.08)]">
       <div className="mb-6 px-2">
         <div className="mb-1 flex items-center gap-2">
           <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-linear-to-br from-blue-600 to-cyan-500 text-xs font-bold text-white">
