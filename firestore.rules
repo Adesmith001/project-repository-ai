@@ -298,6 +298,14 @@ service cloud.firestore {
       && request.resource.data.createdAt == resource.data.createdAt;
     }
 
+    function canStudentDeleteRejectedOwnProject() {
+      return requesterProfileExists()
+      && requesterDoc().data.role == 'student'
+      && resource.data.studentUid is string
+      && resource.data.studentUid == request.auth.uid
+      && resource.data.status == 'rejected';
+    }
+
     function isValidDepartmentRecord(data) {
       return data.keys().hasOnly([
         'name',
@@ -385,7 +393,7 @@ service cloud.firestore {
         && request.resource.data.createdAt == resource.data.createdAt
       || canSupervisorReviewProject();
 
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || canStudentDeleteRejectedOwnProject();
     }
 
     match /departments/{departmentId} {

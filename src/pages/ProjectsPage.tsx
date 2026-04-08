@@ -75,8 +75,9 @@ export function ProjectsPage() {
 
     try {
       await removeProject(projectId)
-      const refreshed = await listProjects(filters)
+      const [refreshed, refreshedAll] = await Promise.all([listProjects(filters), listProjects()])
       setProjects(refreshed)
+      setAllProjects(refreshedAll)
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : 'Unable to delete project.')
     }
@@ -358,6 +359,21 @@ export function ProjectsPage() {
                         <Link to={`/projects/${project.id}`}>
                           <Button size="sm" variant="outline">Open</Button>
                         </Link>
+                        {profile?.role === 'student' && project.studentUid === profile.uid && project.status === 'rejected' ? (
+                          <>
+                            <Link to={`/upload-project?resubmitFrom=${project.id}`}>
+                              <Button size="sm" variant="secondary">Resubmit</Button>
+                            </Link>
+                            <Button
+                              size="sm"
+                              variant="danger"
+                              disabled={actionProjectId === project.id}
+                              onClick={() => void onDelete(project.id)}
+                            >
+                              Delete
+                            </Button>
+                          </>
+                        ) : null}
                         {profile?.role === 'supervisor' && canSupervisorReview(project) ? (
                           <>
                             {project.status !== 'approved' ? (

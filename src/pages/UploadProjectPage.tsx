@@ -32,6 +32,7 @@ export function UploadProjectPage() {
   const [searchParams] = useSearchParams()
 
   const editingId = searchParams.get('edit')
+  const resubmitFromId = searchParams.get('resubmitFrom')
 
   const [form, setForm] = useState<ProjectInput>({
     title: '',
@@ -64,32 +65,50 @@ export function UploadProjectPage() {
     let mounted = true
 
     async function loadRecord() {
-      if (!editingId) {
+      const sourceProjectId = editingId || resubmitFromId
+
+      if (!sourceProjectId) {
         return
       }
 
-      const record = await getProjectById(editingId)
+      try {
+        const record = await getProjectById(sourceProjectId)
 
-      if (!record || !mounted) {
-        return
+        if (!mounted) {
+          return
+        }
+
+        if (!record) {
+          setError('Unable to load the selected project record.')
+          return
+        }
+
+        const isResubmitMode = !editingId && Boolean(resubmitFromId)
+
+        setForm({
+          title: record.title,
+          abstract: record.abstract,
+          keywords: record.keywords,
+          department: record.department,
+          year: record.year,
+          supervisor: record.supervisor,
+          supervisorUid: record.supervisorUid,
+          studentName: record.studentName,
+          studentUid: record.studentUid,
+          fileUrl: isResubmitMode ? '' : record.fileUrl,
+          filePublicId: isResubmitMode ? '' : record.filePublicId,
+          status: isResubmitMode ? 'pending' : record.status,
+          rejectionReason: isResubmitMode ? '' : record.rejectionReason,
+        })
+
+        setKeywordText(record.keywords.join(', '))
+        setSelectedFile(null)
+        setUploadProgress(0)
+      } catch (loadError) {
+        if (mounted) {
+          setError(loadError instanceof Error ? loadError.message : 'Unable to load project details.')
+        }
       }
-
-      setForm({
-        title: record.title,
-        abstract: record.abstract,
-        keywords: record.keywords,
-        department: record.department,
-        year: record.year,
-        supervisor: record.supervisor,
-        supervisorUid: record.supervisorUid,
-        studentName: record.studentName,
-        studentUid: record.studentUid,
-        fileUrl: record.fileUrl,
-        filePublicId: record.filePublicId,
-        status: record.status,
-        rejectionReason: record.rejectionReason,
-      })
-      setKeywordText(record.keywords.join(', '))
     }
 
     void loadRecord()
@@ -97,7 +116,7 @@ export function UploadProjectPage() {
     return () => {
       mounted = false
     }
-  }, [editingId])
+  }, [editingId, resubmitFromId])
 
   useEffect(() => {
     if (departments.length === 0) {
@@ -318,9 +337,21 @@ export function UploadProjectPage() {
     <div className="space-y-6 py-4">
       <SectionHeading
         eyebrow="Repository Curation"
-        title={editingId ? 'Edit project record' : 'Upload a new project record'}
+        title={
+          editingId
+            ? 'Edit project record'
+            : resubmitFromId
+              ? 'Resubmit rejected project'
+              : 'Upload a new project record'
+        }
         description="Store high-quality academic metadata and source PDFs for reliable institutional search and similarity analysis."
       />
+
+      {resubmitFromId ? (
+        <p className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          Resubmission mode: metadata is prefilled from your rejected record. Upload a new PDF and submit again.
+        </p>
+      ) : null}
 
       {profile?.role === 'student' && !profile.uploadCleared ? (
         <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -341,7 +372,13 @@ export function UploadProjectPage() {
             <FileUp size={16} className="text-teal-700" />
           </div>
           <p className="mt-2 text-xl font-extrabold text-slate-950">{editingId ? 'Editing' : 'Creating'}</p>
-          <p className="mt-1 text-xs text-slate-500">{editingId ? 'Updating existing project metadata' : 'Adding a fresh project record'}</p>
+          <p className="mt-1 text-xs text-slate-500">
+            {editingId
+              ? 'Updating existing project metadata'
+              : resubmitFromId
+                ? 'Submitting a revised project record'
+                : 'Adding a fresh project record'}
+          </p>
         </Card>
 
         <Card className="p-5" hover>
