@@ -210,6 +210,7 @@ service cloud.firestore {
         'fileUrl',
         'filePublicId',
         'status',
+        'rejectionReason',
         'embedding',
         'createdAt',
         'updatedAt'
@@ -247,6 +248,12 @@ service cloud.firestore {
       && data.filePublicId.size() > 0
       && data.status is string
       && isValidProjectStatus(data.status)
+      && data.rejectionReason is string
+      && data.rejectionReason.size() <= 2000
+      && (
+        (data.status == 'rejected' && data.rejectionReason.size() >= 10)
+        || (data.status != 'rejected' && data.rejectionReason == '')
+      )
       && isValidEmbedding(data.embedding)
       && data.createdAt is string
       && data.updatedAt is string;
@@ -261,6 +268,7 @@ service cloud.firestore {
       && data.supervisorUid == requesterDoc().data.assignedSupervisorUid
       && data.supervisor == requesterDoc().data.assignedSupervisorName
       && data.studentName == requesterDoc().data.fullName
+      && data.rejectionReason == ''
       && data.status == 'pending';
     }
 
@@ -279,9 +287,14 @@ service cloud.firestore {
       return isSupervisorAssignedToProject(resource.data)
       && request.resource.data.diff(resource.data).changedKeys().hasOnly([
         'status',
+        'rejectionReason',
         'updatedAt'
       ])
       && isValidProjectStatus(request.resource.data.status)
+      && (
+        (request.resource.data.status == 'rejected' && request.resource.data.rejectionReason.size() >= 10)
+        || (request.resource.data.status != 'rejected' && request.resource.data.rejectionReason == '')
+      )
       && request.resource.data.createdAt == resource.data.createdAt;
     }
 
@@ -318,7 +331,7 @@ service cloud.firestore {
           || (
             request.resource.data.assignedSupervisorUid.size() > 0
             && request.resource.data.assignedSupervisorName.size() >= 2
-            request.resource.data.uploadCleared == false
+            && request.resource.data.uploadCleared == false
             && request.resource.data.clearedBySupervisorUid == ''
             && request.resource.data.clearedBySupervisorName == ''
           )

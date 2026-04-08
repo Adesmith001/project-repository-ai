@@ -45,6 +45,7 @@ export function UploadProjectPage() {
     fileUrl: '',
     filePublicId: '',
     status: 'pending',
+    rejectionReason: '',
   })
   const [keywordText, setKeywordText] = useState('')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -83,6 +84,7 @@ export function UploadProjectPage() {
         fileUrl: record.fileUrl,
         filePublicId: record.filePublicId,
         status: record.status,
+        rejectionReason: record.rejectionReason,
       })
       setKeywordText(record.keywords.join(', '))
     }
@@ -262,6 +264,15 @@ export function UploadProjectPage() {
         payload.supervisorUid = profile.assignedSupervisorUid
         payload.supervisor = profile.assignedSupervisorName
         payload.status = 'pending'
+        payload.rejectionReason = ''
+      }
+
+      if (payload.status !== 'rejected') {
+        payload.rejectionReason = ''
+      }
+
+      if (payload.status === 'rejected' && payload.rejectionReason.trim().length < 10) {
+        throw new Error('Provide a rejection reason with at least 10 characters.')
       }
 
       if (!payload.supervisorUid.trim() || !payload.supervisor.trim()) {
@@ -447,10 +458,25 @@ export function UploadProjectPage() {
                     setForm((prev) => ({
                       ...prev,
                       status: event.target.value as ProjectInput['status'],
+                      rejectionReason:
+                        event.target.value === 'rejected'
+                          ? prev.rejectionReason
+                          : '',
                     }))
                   }
                 />
               )}
+
+              {profile?.role !== 'student' && form.status === 'rejected' ? (
+                <Textarea
+                  label="Rejection reason"
+                  value={form.rejectionReason}
+                  onChange={(event) => setForm((prev) => ({ ...prev, rejectionReason: event.target.value }))}
+                  placeholder="Explain why this project is rejected and what should be improved."
+                  className="md:col-span-2"
+                  required
+                />
+              ) : null}
             </div>
           </div>
 

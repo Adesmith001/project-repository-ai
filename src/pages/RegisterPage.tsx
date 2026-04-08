@@ -193,6 +193,7 @@ export function RegisterPage() {
             <Link to="/login" className="font-semibold text-slate-900 underline">
               Log in
             </Link>
+            
           </p>
         </section>
       </div>

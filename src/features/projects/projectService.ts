@@ -28,6 +28,7 @@ function normalizeProjectRecord(projectId: string, data: Partial<ProjectRecord>)
     fileUrl: data.fileUrl || '',
     filePublicId: data.filePublicId || '',
     status: data.status || 'pending',
+    rejectionReason: data.rejectionReason || '',
     embedding: data.embedding || [],
     createdAt: data.createdAt || '',
     updatedAt: data.updatedAt || '',
@@ -175,6 +176,7 @@ export async function updateProject(projectId: string, input: Partial<ProjectInp
 export async function updateProjectStatus(payload: {
   projectId: string
   status: ProjectRecord['status']
+  rejectionReason?: string
   actor: Pick<UserProfile, 'uid' | 'fullName' | 'role'>
 }) {
   if (!db) {
@@ -200,8 +202,15 @@ export async function updateProjectStatus(payload: {
     }
   }
 
+  const normalizedReason = payload.rejectionReason?.trim() || ''
+
+  if (payload.status === 'rejected' && normalizedReason.length < 10) {
+    throw new Error('Provide a clear rejection reason (at least 10 characters).')
+  }
+
   await updateDoc(doc(db, 'projects', payload.projectId), {
     status: payload.status,
+    rejectionReason: payload.status === 'rejected' ? normalizedReason : '',
     updatedAt: new Date().toISOString(),
   })
 

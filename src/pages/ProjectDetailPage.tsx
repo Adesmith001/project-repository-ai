@@ -110,6 +110,13 @@ export function ProjectDetailPage() {
           </div>
         </div>
 
+        {project.status === 'rejected' && project.rejectionReason.trim() ? (
+          <div className="mt-5 rounded-xl border border-rose-200 bg-rose-50 p-4">
+            <p className="text-xs uppercase tracking-wide text-rose-700">Rejection reason</p>
+            <p className="mt-2 text-sm text-rose-900">{project.rejectionReason}</p>
+          </div>
+        ) : null}
+
         <div className="mt-6 flex flex-wrap gap-2">
           <a href={project.fileUrl} target="_blank" rel="noreferrer">
             <Button>Open PDF</Button>

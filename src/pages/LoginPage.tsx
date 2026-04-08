@@ -70,9 +70,14 @@ export function LoginPage() {
               <p className="brand-wordmark text-lg text-slate-900">AI REPO</p>
               <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Secure Sign In</p>
             </div>
-            <Link to="/register" className="rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white">
+            <Button
+              type="button"
+              size="sm"
+              className="rounded-full px-4 py-2 text-xs font-semibold"
+              onClick={() => navigate('/register')}
+            >
               Create account
-            </Link>
+            </Button>
           </div>
 
           <div className="mt-8">

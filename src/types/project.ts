@@ -14,6 +14,7 @@ export interface ProjectRecord {
   fileUrl: string
   filePublicId: string
   status: ProjectStatus
+  rejectionReason: string
   embedding: number[]
   createdAt: string
   updatedAt: string
@@ -32,6 +33,7 @@ export interface ProjectInput {
   fileUrl: string
   filePublicId: string
   status: ProjectStatus
+  rejectionReason: string
 }
 
 export interface ProjectFilters {

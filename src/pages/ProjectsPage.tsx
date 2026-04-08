@@ -4,8 +4,10 @@ import { FolderKanban, SlidersHorizontal, Sparkles } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
 import { Select } from '../components/ui/Select'
+import { Textarea } from '../components/ui/Textarea'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
+import { Modal } from '../components/ui/Modal'
 import { SectionHeading } from '../components/ui/SectionHeading'
 import { EmptyState } from '../components/states/EmptyState'
 import { ErrorState } from '../components/states/ErrorState'
@@ -28,6 +30,9 @@ export function ProjectsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [actionProjectId, setActionProjectId] = useState<string | null>(null)
+  const [rejectingProject, setRejectingProject] = useState<ProjectRecord | null>(null)
+  const [rejectionReasonDraft, setRejectionReasonDraft] = useState('')
+  const [rejectionError, setRejectionError] = useState('')
 
   useEffect(() => {
     let mounted = true
@@ -85,7 +90,7 @@ export function ProjectsPage() {
     return hasUidMatch || hasNameMatch
   }
 
-  async function onReview(project: ProjectRecord, nextStatus: ProjectRecord['status']) {
+  async function onReview(project: ProjectRecord, nextStatus: ProjectRecord['status'], rejectionReason?: string) {
     if (!profile || (profile.role !== 'supervisor' && profile.role !== 'admin')) {
       return
     }
@@ -96,6 +101,7 @@ export function ProjectsPage() {
       await updateProjectStatus({
         projectId: project.id,
         status: nextStatus,
+        rejectionReason,
         actor: {
           uid: profile.uid,
           fullName: profile.fullName,
@@ -105,11 +111,48 @@ export function ProjectsPage() {
 
       const refreshed = await listProjects(filters)
       setProjects(refreshed)
+
+      if (nextStatus === 'rejected') {
+        setRejectingProject(null)
+        setRejectionReasonDraft('')
+        setRejectionError('')
+      }
     } catch (reviewError) {
       setError(reviewError instanceof Error ? reviewError.message : 'Unable to update review status.')
     } finally {
       setActionProjectId(null)
     }
+  }
+
+  function openRejectModal(project: ProjectRecord) {
+    setRejectingProject(project)
+    setRejectionReasonDraft(project.rejectionReason || '')
+    setRejectionError('')
+  }
+
+  function closeRejectModal() {
+    if (actionProjectId) {
+      return
+    }
+
+    setRejectingProject(null)
+    setRejectionReasonDraft('')
+    setRejectionError('')
+  }
+
+  async function submitRejectReason() {
+    if (!rejectingProject) {
+      return
+    }
+
+    const reason = rejectionReasonDraft.trim()
+
+    if (reason.length < 10) {
+      setRejectionError('Please provide a rejection reason with at least 10 characters.')
+      return
+    }
+
+    await onReview(rejectingProject, 'rejected', reason)
   }
 
   const supervisorOptions = useMemo(() => {
@@ -329,7 +372,7 @@ export function ProjectsPage() {
                                 size="sm"
                                 variant="outline"
                                 disabled={actionProjectId === project.id}
-                                onClick={() => void onReview(project, 'rejected')}
+                                onClick={() => openRejectModal(project)}
                               >
                                 Reject
                               </Button>
@@ -346,6 +389,16 @@ export function ProjectsPage() {
                                 onClick={() => void onReview(project, 'approved')}
                               >
                                 Approve
+                              </Button>
+                            ) : null}
+                            {project.status !== 'rejected' ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={actionProjectId === project.id}
+                                onClick={() => openRejectModal(project)}
+                              >
+                                Reject
                               </Button>
                             ) : null}
                             <Link to={`/upload-project?edit=${project.id}`}>
@@ -365,6 +418,54 @@ export function ProjectsPage() {
           </div>
         </Card>
       ) : null}
+
+      <Modal
+        open={Boolean(rejectingProject)}
+        onClose={closeRejectModal}
+        title="Reject project"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-slate-600">
+            Add a clear reason for rejection so the student can revise effectively.
+          </p>
+
+          <Textarea
+            label="Rejection reason"
+            value={rejectionReasonDraft}
+            onChange={(event) => {
+              setRejectionReasonDraft(event.target.value)
+              if (rejectionError) {
+                setRejectionError('')
+              }
+            }}
+            placeholder="Explain what needs to be fixed before approval."
+            required
+          />
+
+          {rejectionError ? (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              {rejectionError}
+            </p>
+          ) : null}
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={closeRejectModal}
+              disabled={Boolean(actionProjectId)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => void submitRejectReason()}
+              disabled={Boolean(actionProjectId)}
+            >
+              {actionProjectId ? 'Saving...' : 'Confirm rejection'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }
