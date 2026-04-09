@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Bot, Search, SlidersHorizontal } from 'lucide-react'
+import { Search, SlidersHorizontal } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import toast from 'react-hot-toast'
@@ -8,9 +8,9 @@ import { Card } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
 import { Textarea } from '../components/ui/Textarea'
 import { Button } from '../components/ui/Button'
-import { PromptInput } from '../components/ui/ai-chat-input'
 import { Badge } from '../components/ui/Badge'
 import { SectionHeading } from '../components/ui/SectionHeading'
+import ChatTemplate from '../components/ui/chat-template'
 import { useAppDispatch, useAppSelector } from '../hooks/useAppStore'
 import { useErrorToast } from '../hooks/useErrorToast'
 import {
@@ -415,102 +415,28 @@ export function CheckTopicPage() {
               Continue with follow-up questions about overlap, novelty gaps, and practical revision strategy.
             </p>
 
-            <div className="mt-4 grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
-              <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Conversation history</p>
-
-                <div className="mt-3 max-h-96 space-y-2 overflow-y-auto pr-1">
-                  {loadingHistory && sessions.length === 0 ? (
-                    <p className="text-sm text-slate-500">Loading history...</p>
-                  ) : null}
-
-                  {!loadingHistory && sessions.length === 0 ? (
-                    <p className="text-sm text-slate-500">Run a topic check to create your first conversation.</p>
-                  ) : null}
-
-                  {sessions.map((session) => {
-                    const active = session.id === activeSessionId
-
-                    return (
-                      <button
-                        key={session.id}
-                        type="button"
-                        onClick={() => setActiveSessionId(session.id)}
-                        className={`w-full rounded-lg border px-3 py-2 text-left transition ${
-                          active
-                            ? 'border-slate-900 bg-slate-900 text-white'
-                            : 'border-slate-200 bg-white text-slate-800 hover:border-slate-300'
-                        }`}
-                      >
-                        <p className="line-clamp-2 text-sm font-semibold">
-                          {session.input.proposedTitle || 'Untitled topic check'}
-                        </p>
-                        <p className={`mt-1 text-xs ${active ? 'text-slate-300' : 'text-slate-500'}`}>
-                          {new Date(session.updatedAt).toLocaleString()} · {session.messages.length} messages
-                        </p>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="max-h-96 space-y-3 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-                  {(activeSession?.messages || []).map((message) => (
-                    <div
-                      key={message.id}
-                      className={`max-w-[92%] rounded-xl px-3 py-2 text-sm ${
-                        message.role === 'user'
-                          ? 'ml-auto bg-slate-900 text-white'
-                          : 'border border-slate-200 bg-white text-slate-800'
-                      }`}
-                    >
-                      {message.role === 'assistant' ? (
-                        <div className="leading-6 [&_a]:font-semibold [&_a]:text-teal-700 [&_code]:rounded [&_code]:bg-slate-100 [&_code]:px-1 [&_code]:py-0.5 [&_li]:ml-4 [&_ol]:list-decimal [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:list-disc">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                            {message.content}
-                          </ReactMarkdown>
-                        </div>
-                      ) : (
-                        <p>{message.content}</p>
-                      )}
-                    </div>
-                  ))}
-
-                  {chatLoading ? (
-                    <div className="max-w-[88%] rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-700 shadow-sm">
-                      <div className="flex items-center gap-2">
-                        <Bot size={14} className="text-teal-600" />
-                        <div className="flex items-center gap-1">
-                          <span className="h-2 w-2 animate-bounce rounded-full bg-teal-500 [animation-delay:-0.3s]" />
-                          <span className="h-2 w-2 animate-bounce rounded-full bg-teal-500 [animation-delay:-0.15s]" />
-                          <span className="h-2 w-2 animate-bounce rounded-full bg-teal-500" />
-                        </div>
-                        <p className="text-xs text-slate-500">AI is thinking...</p>
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-
-                <PromptInput
-                  placeholder={
-                    activeSession
-                      ? 'Ask the AI about your topic overlap and improvements...'
-                      : 'Run a topic check and select a conversation to continue...'
-                  }
-                  disabled={chatLoading || !activeSession}
-                  onSubmit={(value) => {
-                    void onChatSubmit(value)
-                  }}
-                />
-
-                {activeSession?.pdfContext ? (
-                  <p className="flex items-center gap-2 text-xs text-teal-700">
-                    <Bot size={12} />
-                    PDF context is connected to this conversation.
-                  </p>
-                ) : null}
-              </div>
+            <div className="mt-4">
+              <ChatTemplate
+                sessions={sessions}
+                activeSessionId={activeSessionId}
+                loadingHistory={loadingHistory}
+                chatLoading={chatLoading}
+                onSelectSession={setActiveSessionId}
+                onSubmitMessage={(value) => {
+                  void onChatSubmit(value)
+                }}
+                disabled={chatLoading || !activeSession}
+                placeholder={
+                  activeSession
+                    ? 'Ask the AI about your topic overlap and improvements...'
+                    : 'Run a topic check and select a conversation to continue...'
+                }
+                renderAssistantMessage={(content) => (
+                  <div className="leading-6 [&_a]:font-semibold [&_a]:text-teal-700 [&_code]:rounded [&_code]:bg-slate-100 [&_code]:px-1 [&_code]:py-0.5 [&_li]:ml-4 [&_ol]:list-decimal [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:list-disc">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+                  </div>
+                )}
+              />
             </div>
           </Card>
         </>

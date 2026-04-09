@@ -309,7 +309,7 @@ export async function generateTopicFollowUpResponse(params: {
 
   const recommendation = params.result.recommendation
   const conversationContext = (params.conversationHistory || [])
-    .slice(-8)
+    .slice(-12)
     .map((message) => `${message.role.toUpperCase()}: ${message.content}`)
     .join('\n')
 
@@ -347,18 +347,31 @@ ${pdfContext || 'PDF context unavailable.'}
 Student question:
 ${params.question}
 
-Respond using concise markdown with short headings and bullet points where helpful.
-Keep it practical and include actionable next steps.`
+Answer rules:
+- Respond naturally like a highly capable Gemini assistant, not a fixed template.
+- Prioritize the student's latest question first, then add helpful guidance.
+- Ground your response in this specific proposal (title, description, keywords), similarity findings, and conversation context.
+- Avoid generic advice; make recommendations concrete, practical, and implementation-aware.
+- If the user asks for alternatives beyond their current line, propose realistic directions aligned with their skills.
+- Use markdown only when it improves readability; do not force a rigid format.
+- Include clear next actions when relevant.`
 
   try {
     const text = (await tryGenerateText(prompt)).trim()
 
     if (!text) {
-      return 'Based on your latest similarity report, focus first on narrowing scope, changing dataset or method, and defining a measurable novelty claim before resubmitting your topic.'
+      const retryPrompt = `${prompt}\n\nYour previous answer was empty. Provide a complete, specific answer now.`
+      const retryText = (await tryGenerateText(retryPrompt)).trim()
+
+      if (retryText) {
+        return retryText
+      }
+
+      return 'I could not generate a response right now. Please try again in a moment.'
     }
 
     return text
   } catch {
-    return 'I could not process this follow-up question right now. Use the similarity match and recommendation cards to revise scope, then ask again.'
+    return 'I could not generate a response right now. Please try again in a moment.'
   }
 }
