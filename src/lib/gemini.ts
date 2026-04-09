@@ -1,4 +1,3 @@
-import { GoogleGenAI } from '@google/genai'
 import type {
   SimilarProjectMatch,
   TopicChatMessage,
@@ -6,11 +5,8 @@ import type {
   TopicCheckResult,
   TopicRecommendation,
 } from '../types'
-import { appEnv, isGeminiConfigured } from './env'
 
-const geminiClient = isGeminiConfigured
-  ? new GoogleGenAI({ apiKey: appEnv.geminiApiKey })
-  : null
+const GEMINI_API_ENDPOINT = '/api/gemini'
 
 const GENERATION_MODELS = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'] as const
 
@@ -199,43 +195,44 @@ function heuristicRecommendation(params: {
   }
 }
 
+async function requestGeminiApi<TResponse>(body: Record<string, unknown>) {
+  const response = await fetch(GEMINI_API_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    return null
+  }
+
+  return (await response.json()) as TResponse
+}
+
 async function tryGenerateText(contents: string) {
-  if (!geminiClient) {
+  try {
+    const payload = await requestGeminiApi<{ text?: string }>({
+      action: 'generateText',
+      prompt: contents,
+      models: GENERATION_MODELS,
+    })
+
+    return payload?.text?.trim() || ''
+  } catch {
     return ''
   }
-
-  for (const model of GENERATION_MODELS) {
-    try {
-      const response = await geminiClient.models.generateContent({
-        model,
-        contents,
-      })
-
-      const text = response.text?.trim() || ''
-
-      if (text) {
-        return text
-      }
-    } catch {
-      // Continue to fallback model.
-    }
-  }
-
-  return ''
 }
 
 export async function createEmbedding(text: string) {
-  if (!geminiClient) {
-    return fallbackEmbedding(text)
-  }
-
   try {
-    const response = await geminiClient.models.embedContent({
-      model: 'text-embedding-004',
-      contents: text,
+    const payload = await requestGeminiApi<{ values?: number[] }>({
+      action: 'embed',
+      text,
     })
 
-    const values = response.embeddings?.[0]?.values
+    const values = payload?.values
 
     if (!values || values.length === 0) {
       return fallbackEmbedding(text)
@@ -251,10 +248,6 @@ export async function generateGroundedRecommendation(params: {
   input: TopicCheckInput
   matches: SimilarProjectMatch[]
 }): Promise<TopicRecommendation> {
-  if (!geminiClient) {
-    return heuristicRecommendation(params)
-  }
-
   const context = params.matches
     .map((match, index) => {
       const project = match.project
@@ -301,10 +294,6 @@ export async function generateTopicFollowUpResponse(params: {
   conversationHistory?: TopicChatMessage[]
   pdfContext?: string
 }) {
-  if (!geminiClient) {
-    return 'AI chat is currently unavailable. Review the similarity matches and recommendation cards while Gemini access is unavailable.'
-  }
-
   const matchesContext = params.result.matches
     .map((match, index) => {
       const project = match.project

@@ -4,16 +4,16 @@ This guide explains everything needed to run this project end-to-end with Fireba
 
 ## 1. Architecture Summary
 
-Project Repository AI is a frontend-only application.
+Project Repository AI is a frontend application with a serverless Gemini proxy endpoint.
 
 - UI: Vite + React + TypeScript + Tailwind + Redux Toolkit
 - Auth: Firebase Authentication (Email/Password and optional Google)
 - Data: Firestore (`users`, `projects`)
 - Files: Cloudinary unsigned browser upload (PDF only)
-- AI: Gemini API via `@google/genai`
+- AI: Gemini API via server-side `/api/gemini` proxy
 - Similarity: Firestore vector search (with client cosine fallback)
 
-There is no Node/Express backend in this version.
+There is no long-running Node/Express backend in this version.
 
 ## 2. Prerequisites
 
@@ -38,11 +38,12 @@ Required variables:
 - `VITE_FIREBASE_APP_ID`
 - `VITE_CLOUDINARY_CLOUD_NAME`
 - `VITE_CLOUDINARY_UPLOAD_PRESET`
-- `VITE_GEMINI_API_KEY`
+- `GEMINI_API_KEY` (server-side only)
 
 Important:
 
 - Do not commit `.env`
+- Do not expose Gemini or Cloudinary secrets in browser code
 - Do not expose Cloudinary API secret in frontend code
 - Unsigned upload presets are prototype/demo-friendly, not enterprise-grade by default
 
@@ -195,7 +196,7 @@ This app uploads PDFs directly from browser and stores returned `secure_url` and
 ## 11. Gemini Setup
 
 1. Create Gemini API key.
-2. Add `VITE_GEMINI_API_KEY`.
+2. Add `GEMINI_API_KEY` in your server environment (for example, Vercel project environment variables).
 3. Ensure API quota and billing are configured.
 
 Topic checker flow:
@@ -259,7 +260,7 @@ pnpm lint
 
 - Verify key validity.
 - Check quota/billing.
-- Inspect browser network logs for API response details.
+- Inspect `/api/gemini` network response and serverless function logs.
 
 ## 15. Security Notes
 

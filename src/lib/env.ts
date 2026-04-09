@@ -13,7 +13,6 @@ export const appEnv = {
   firebaseAppId: env.VITE_FIREBASE_APP_ID,
   cloudinaryCloudName: env.VITE_CLOUDINARY_CLOUD_NAME,
   cloudinaryUploadPreset: env.VITE_CLOUDINARY_UPLOAD_PRESET,
-  geminiApiKey: env.VITE_GEMINI_API_KEY,
 }
 
 export const isFirebaseConfigured =
@@ -26,5 +25,3 @@ export const isFirebaseConfigured =
 
 export const isCloudinaryConfigured =
   hasValue(appEnv.cloudinaryCloudName) && hasValue(appEnv.cloudinaryUploadPreset)
-
-export const isGeminiConfigured = hasValue(appEnv.geminiApiKey)

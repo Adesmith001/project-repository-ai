@@ -102,7 +102,15 @@ Required keys:
 - `VITE_FIREBASE_APP_ID`
 - `VITE_CLOUDINARY_CLOUD_NAME`
 - `VITE_CLOUDINARY_UPLOAD_PRESET`
-- `VITE_GEMINI_API_KEY`
+- `GEMINI_API_KEY` (server-side only, do not prefix with `VITE_`)
+
+### Firebase API key visibility note
+
+When using Firebase Auth in a browser app, the Firebase Web API key may appear in network requests during login flows (including Google sign-in). This key is a project identifier, not a secret credential. Protect access with Firebase Auth settings, authorized domains, and strict Firestore rules.
+
+### Gemini production note
+
+Gemini requests in this project are proxied through `/api/gemini` so the Gemini key remains server-side. Configure `GEMINI_API_KEY` in your hosting provider environment variables (for example, Vercel project settings), not in client `.env` values.
 
 ## Local Setup
 
@@ -229,7 +237,7 @@ The app uploads with `resource_type=raw` and blocks non-PDF files in UI.
 ## Gemini API Setup
 
 1. Create a Gemini API key from Google AI Studio / Google Cloud.
-2. Add `VITE_GEMINI_API_KEY` in `.env`.
+2. Add `GEMINI_API_KEY` in your server environment (local server runtime or hosting provider settings).
 3. Ensure billing/quota allows embedding and generation calls.
 
 Prompting in this app is grounded: Gemini is called only after similar project retrieval.
