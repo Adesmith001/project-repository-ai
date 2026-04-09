@@ -32,10 +32,10 @@ export function AppShell({ profile, children }: AppShellProps) {
 
       <div className="m-4 flex h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_20px_48px_rgba(15,23,42,0.08)] xl:ml-0">
         <Topbar profile={profile} />
-        <main className="flex-1 overflow-y-auto pb-20 md:pb-4">
+        <main className="flex-1 overflow-y-auto pb-20 xl:pb-4">
           <div className="content-shell">{children}</div>
         </main>
-        <div className="md:hidden">
+        <div className="xl:hidden">
           <BottomNavBar role={profile.role} stickyBottom />
         </div>
       </div>

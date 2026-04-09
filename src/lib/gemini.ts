@@ -8,8 +8,6 @@ import type {
 
 const GEMINI_API_ENDPOINT = '/api/gemini'
 
-const GENERATION_MODELS = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'] as const
-
 const EMBEDDING_DIMENSION = 96
 
 const ACADEMIC_COPILOT_PERSONALITY = `You are an intelligent academic AI helper built to support students with project work, research, assignments, idea development, and academic writing.
@@ -216,7 +214,6 @@ async function tryGenerateText(contents: string) {
     const payload = await requestGeminiApi<{ text?: string }>({
       action: 'generateText',
       prompt: contents,
-      models: GENERATION_MODELS,
     })
 
     return payload?.text?.trim() || ''

@@ -1,6 +1,13 @@
 import { GoogleGenAI } from '@google/genai'
 
-const DEFAULT_GENERATION_MODELS = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'] as const
+const DEFAULT_GENERATION_MODELS = [
+  'gemini-2.5-flash',
+  'gemini-flash-latest',
+  'gemini-2.0-flash-lite',
+  'gemini-2.0-flash',
+] as const
+
+const DEFAULT_EMBEDDING_MODELS = ['gemini-embedding-001', 'gemini-embedding-2-preview'] as const
 
 type RequestLike = {
   method?: string
@@ -22,12 +29,24 @@ type GeminiRequestPayload = {
 
 let cachedClient: GoogleGenAI | null | undefined
 
+function deduplicate(values: string[]) {
+  return Array.from(new Set(values))
+}
+
+function normalizeError(error: unknown) {
+  if (error instanceof Error) {
+    return error.message
+  }
+
+  return String(error)
+}
+
 function getGeminiClient() {
   if (cachedClient !== undefined) {
     return cachedClient
   }
 
-  const apiKey = process.env.GEMINI_API_KEY
+  const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY
 
   if (!apiKey || !apiKey.trim()) {
     cachedClient = null
@@ -55,8 +74,10 @@ function parseBody(body: unknown): GeminiRequestPayload {
 }
 
 function normalizeModels(models: unknown) {
+  const fallbackModels = [...DEFAULT_GENERATION_MODELS]
+
   if (!Array.isArray(models)) {
-    return [...DEFAULT_GENERATION_MODELS]
+    return fallbackModels
   }
 
   const sanitized = models
@@ -65,10 +86,11 @@ function normalizeModels(models: unknown) {
     .filter(Boolean)
 
   if (sanitized.length === 0) {
-    return [...DEFAULT_GENERATION_MODELS]
+    return fallbackModels
   }
 
-  return sanitized
+  // Keep client-provided order first, then append trusted server fallbacks.
+  return deduplicate([...sanitized, ...fallbackModels])
 }
 
 export default async function handler(req: RequestLike, res: ResponseLike) {
@@ -97,6 +119,7 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
       }
 
       const models = normalizeModels(payload.models)
+      const errors: string[] = []
 
       for (const model of models) {
         try {
@@ -111,12 +134,18 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
             res.status(200).json({ text })
             return
           }
-        } catch {
+        } catch (error) {
+          const message = normalizeError(error)
+          errors.push(`${model}: ${message}`)
+          console.error(`[api/gemini] generateContent failed for ${model}: ${message}`)
           // Continue to the next model.
         }
       }
 
-      res.status(502).json({ error: 'Gemini generation failed.' })
+      res.status(502).json({
+        error: 'Gemini generation failed for all candidate models.',
+        details: errors.slice(0, 3),
+      })
       return
     }
 
@@ -128,18 +157,41 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
         return
       }
 
-      const response = await client.models.embedContent({
-        model: 'text-embedding-004',
-        contents: text,
-      })
+      const errors: string[] = []
 
-      const values = response.embeddings?.[0]?.values ?? []
-      res.status(200).json({ values })
+      for (const model of DEFAULT_EMBEDDING_MODELS) {
+        try {
+          const response = await client.models.embedContent({
+            model,
+            contents: text,
+          })
+
+          const values = response.embeddings?.[0]?.values ?? []
+
+          if (values.length > 0) {
+            res.status(200).json({ values })
+            return
+          }
+
+          errors.push(`${model}: empty embedding response`)
+        } catch (error) {
+          const message = normalizeError(error)
+          errors.push(`${model}: ${message}`)
+          console.error(`[api/gemini] embedContent failed for ${model}: ${message}`)
+        }
+      }
+
+      res.status(502).json({
+        error: 'Gemini embedding failed for all candidate models.',
+        details: errors.slice(0, 3),
+      })
       return
     }
 
     res.status(400).json({ error: 'Unsupported Gemini action.' })
-  } catch {
-    res.status(500).json({ error: 'Unable to process Gemini request.' })
+  } catch (error) {
+    const message = normalizeError(error)
+    console.error(`[api/gemini] Unexpected handler error: ${message}`)
+    res.status(500).json({ error: 'Unable to process Gemini request.', details: message })
   }
 }
