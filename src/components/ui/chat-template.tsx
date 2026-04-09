@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { useMemo, useState } from 'react'
-import { Bot, MessageSquareText, Search } from 'lucide-react'
+import { Bot, MessageSquareText, Search, Trash2 } from 'lucide-react'
 import type { TopicCheckSessionRecord } from '../../types'
 import { PromptInput } from './ai-chat-input'
 
@@ -11,6 +11,8 @@ type ChatTemplateProps = {
   chatLoading: boolean
   onSelectSession: (sessionId: string) => void
   onSubmitMessage: (message: string) => void
+  onDeleteSession?: (sessionId: string) => void
+  deletingSessionIds?: Set<string>
   disabled: boolean
   placeholder: string
   renderAssistantMessage?: (content: string) => ReactNode
@@ -27,6 +29,8 @@ export function ChatTemplate({
   chatLoading,
   onSelectSession,
   onSubmitMessage,
+  onDeleteSession,
+  deletingSessionIds,
   disabled,
   placeholder,
   renderAssistantMessage,
@@ -82,25 +86,41 @@ export function ChatTemplate({
 
           {filteredSessions.map((session) => {
             const active = session.id === activeSessionId
+            const isDeleting = deletingSessionIds?.has(session.id) || false
 
             return (
-              <button
-                key={session.id}
-                type="button"
-                onClick={() => onSelectSession(session.id)}
-                className={`w-full rounded-lg border px-3 py-2 text-left transition ${
-                  active
-                    ? 'border-slate-900 bg-slate-900 text-white'
-                    : 'border-slate-200 bg-white text-slate-800 hover:border-slate-300'
-                }`}
-              >
-                <p className="line-clamp-2 text-sm font-semibold">
-                  {session.input.proposedTitle || 'Untitled topic check'}
-                </p>
-                <p className={`mt-1 text-xs ${active ? 'text-slate-300' : 'text-slate-500'}`}>
-                  {formatSessionLabel(session)}
-                </p>
-              </button>
+              <div key={session.id} className="flex items-start gap-2">
+                <button
+                  type="button"
+                  onClick={() => onSelectSession(session.id)}
+                  disabled={isDeleting}
+                  className={`flex-1 rounded-lg border px-3 py-2 text-left transition disabled:opacity-70 ${
+                    active
+                      ? 'border-slate-900 bg-slate-900 text-white'
+                      : 'border-slate-200 bg-white text-slate-800 hover:border-slate-300'
+                  }`}
+                >
+                  <p className="line-clamp-2 text-sm font-semibold">
+                    {session.input.proposedTitle || 'Untitled topic check'}
+                  </p>
+                  <p className={`mt-1 text-xs ${active ? 'text-slate-300' : 'text-slate-500'}`}>
+                    {formatSessionLabel(session)}
+                  </p>
+                </button>
+
+                {onDeleteSession ? (
+                  <button
+                    type="button"
+                    onClick={() => onDeleteSession(session.id)}
+                    disabled={isDeleting}
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+                    aria-label={isDeleting ? 'Deleting conversation' : 'Delete conversation'}
+                    title={isDeleting ? 'Deleting...' : 'Delete conversation'}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                ) : null}
+              </div>
             )
           })}
         </div>

@@ -2,6 +2,7 @@ import {
   addDoc,
   arrayUnion,
   collection,
+  deleteDoc,
   doc,
   getDocs,
   onSnapshot,
@@ -37,6 +38,14 @@ function getTopicCheckSessionsCollection(userUid: string) {
   }
 
   return collection(db, 'users', userUid, TOPIC_CHECK_SESSION_COLLECTION)
+}
+
+function getTopicCheckSessionRef(userUid: string, sessionId: string) {
+  if (!db) {
+    throw new Error('Firestore is not configured.')
+  }
+
+  return doc(db, 'users', userUid, TOPIC_CHECK_SESSION_COLLECTION, sessionId)
 }
 
 function fallbackTopicCheckResult(): TopicCheckResult {
@@ -214,17 +223,23 @@ export async function appendTopicCheckMessage(params: {
   sessionId: string
   message: TopicChatMessage
 }) {
-  if (!db) {
-    throw new Error('Firestore is not configured.')
-  }
-
-  const sessionRef = doc(db, 'users', params.userUid, TOPIC_CHECK_SESSION_COLLECTION, params.sessionId)
+  const sessionRef = getTopicCheckSessionRef(params.userUid, params.sessionId)
 
   await updateDoc(sessionRef, {
     messages: arrayUnion(params.message),
     updatedAt: params.message.createdAt,
   })
 }
+
+export async function deleteTopicCheckConversation(params: {
+  userUid: string
+  sessionId: string
+}) {
+  const sessionRef = getTopicCheckSessionRef(params.userUid, params.sessionId)
+  await deleteDoc(sessionRef)
+}
+
+export const deleteTopicCheckSession = deleteTopicCheckConversation
 
 export function subscribeTopicCheckSessions(
   userUid: string,

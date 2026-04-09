@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Search, SlidersHorizontal } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
@@ -17,6 +17,7 @@ import {
   appendTopicCheckMessage,
   askTopicFollowUp,
   createTopicCheckSession,
+  deleteTopicCheckConversation,
   getLatestStudentPdfContext,
   subscribeTopicCheckSessions,
 } from '../features/topicChecker/topicCheckerService'
@@ -26,6 +27,12 @@ import { parseKeywordInput } from '../utils/parsers'
 
 const INITIAL_ASSISTANT_CHAT_MESSAGE =
   'Similarity analysis is complete. Ask me about overlap risk, novelty improvements, or how to reshape your topic before final submission.'
+
+const CONVERSATION_DELETE_UNDO_WINDOW_MS = 6000
+
+type PendingConversationDelete = {
+  timeoutId: ReturnType<typeof window.setTimeout>
+}
 
 export function CheckTopicPage() {
   const dispatch = useAppDispatch()
@@ -41,7 +48,9 @@ export function CheckTopicPage() {
   const [activeSessionId, setActiveSessionId] = useState('')
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [chatLoading, setChatLoading] = useState(false)
+  const [pendingConversationDeletes, setPendingConversationDeletes] = useState<Record<string, PendingConversationDelete>>({})
   const [chatError, setChatError] = useState('')
+  const pendingConversationDeletesRef = useRef<Record<string, PendingConversationDelete>>({})
 
   useErrorToast(error || chatError)
 
@@ -50,6 +59,12 @@ export function CheckTopicPage() {
       setSessions([])
       setActiveSessionId('')
       setLoadingHistory(false)
+      setPendingConversationDeletes((previous) => {
+        Object.values(previous).forEach((entry) => {
+          window.clearTimeout(entry.timeoutId)
+        })
+        return {}
+      })
       setChatError('')
       return
     }
@@ -80,9 +95,37 @@ export function CheckTopicPage() {
     }
   }, [authUser?.uid])
 
+  useEffect(() => {
+    pendingConversationDeletesRef.current = pendingConversationDeletes
+  }, [pendingConversationDeletes])
+
+  useEffect(() => {
+    return () => {
+      Object.values(pendingConversationDeletesRef.current).forEach((entry) => {
+        window.clearTimeout(entry.timeoutId)
+      })
+    }
+  }, [])
+
+  const pendingDeletionIds = useMemo(() => {
+    return new Set(Object.keys(pendingConversationDeletes))
+  }, [pendingConversationDeletes])
+
+  const visibleSessions = useMemo(() => {
+    return sessions.filter((session) => !pendingDeletionIds.has(session.id))
+  }, [sessions, pendingDeletionIds])
+
   const activeSession = useMemo(() => {
-    return sessions.find((session) => session.id === activeSessionId) || null
-  }, [sessions, activeSessionId])
+    return visibleSessions.find((session) => session.id === activeSessionId) || null
+  }, [visibleSessions, activeSessionId])
+
+  useEffect(() => {
+    if (activeSessionId && visibleSessions.some((session) => session.id === activeSessionId)) {
+      return
+    }
+
+    setActiveSessionId(visibleSessions[0]?.id || '')
+  }, [visibleSessions, activeSessionId])
 
   const displayResult = activeSession?.result || result
   const activeInput = activeSession?.input || latestInput
@@ -178,6 +221,82 @@ export function CheckTopicPage() {
     } finally {
       setChatLoading(false)
     }
+  }
+
+  async function onDeleteSession(sessionId: string) {
+    if (!authUser?.uid || pendingConversationDeletes[sessionId]) {
+      return
+    }
+
+    const session = sessions.find((entry) => entry.id === sessionId)
+    const sessionName = session?.input.proposedTitle?.trim() || 'this conversation'
+
+    const confirmed = window.confirm(`Delete ${sessionName}? You can undo this for a few seconds.`)
+
+    if (!confirmed) {
+      return
+    }
+
+    setChatError('')
+
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        await deleteTopicCheckConversation({
+          userUid: authUser.uid,
+          sessionId,
+        })
+
+        toast.success('Conversation deleted.')
+      } catch (deleteError) {
+        setChatError(deleteError instanceof Error ? deleteError.message : 'Unable to delete the selected conversation.')
+      } finally {
+        setPendingConversationDeletes((previous) => {
+          const next = { ...previous }
+          delete next[sessionId]
+          return next
+        })
+      }
+    }, CONVERSATION_DELETE_UNDO_WINDOW_MS)
+
+    setPendingConversationDeletes((previous) => ({
+      ...previous,
+      [sessionId]: { timeoutId },
+    }))
+
+    if (activeSessionId === sessionId) {
+      setActiveSessionId('')
+    }
+
+    toast((toastInstance) => (
+      <div className="flex items-center gap-2 text-sm">
+        <span>Conversation scheduled for deletion.</span>
+        <button
+          type="button"
+          className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          onClick={() => {
+            setPendingConversationDeletes((previous) => {
+              const pending = previous[sessionId]
+
+              if (!pending) {
+                return previous
+              }
+
+              window.clearTimeout(pending.timeoutId)
+              const next = { ...previous }
+              delete next[sessionId]
+              return next
+            })
+
+            toast.dismiss(toastInstance.id)
+            toast.success('Delete undone.')
+          }}
+        >
+          Undo
+        </button>
+      </div>
+    ), {
+      duration: CONVERSATION_DELETE_UNDO_WINDOW_MS,
+    })
   }
 
   const filteredMatches = useMemo(() => {
@@ -417,7 +536,7 @@ export function CheckTopicPage() {
 
             <div className="mt-4">
               <ChatTemplate
-                sessions={sessions}
+                sessions={visibleSessions}
                 activeSessionId={activeSessionId}
                 loadingHistory={loadingHistory}
                 chatLoading={chatLoading}
@@ -425,6 +544,10 @@ export function CheckTopicPage() {
                 onSubmitMessage={(value) => {
                   void onChatSubmit(value)
                 }}
+                onDeleteSession={(sessionId) => {
+                  void onDeleteSession(sessionId)
+                }}
+                deletingSessionIds={pendingDeletionIds}
                 disabled={chatLoading || !activeSession}
                 placeholder={
                   activeSession
