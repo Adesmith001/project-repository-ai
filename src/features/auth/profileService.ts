@@ -3,6 +3,18 @@ import { collection, doc, getDoc, getDocs, setDoc, updateDoc } from 'firebase/fi
 import { db } from '../../lib/firebase'
 import type { UserProfile, UserRole } from '../../types'
 
+function removeUndefinedFields<T extends object>(value: T): Partial<T> {
+  const result: Partial<T> = {}
+
+  for (const [key, fieldValue] of Object.entries(value) as Array<[keyof T, T[keyof T]]>) {
+    if (fieldValue !== undefined) {
+      result[key] = fieldValue
+    }
+  }
+
+  return result
+}
+
 function normalizeUserProfile(data: Partial<UserProfile>): UserProfile {
   return {
     uid: data.uid || '',
@@ -35,8 +47,10 @@ export async function saveUserProfile(profile: UserProfile) {
     throw new Error('Firestore is not configured.')
   }
 
+  const writePayload = removeUndefinedFields(profile)
+
   try {
-    await setDoc(doc(db, 'users', profile.uid), profile, { merge: true })
+    await setDoc(doc(db, 'users', profile.uid), writePayload, { merge: true })
   } catch (error) {
     if (error instanceof FirebaseError && error.code === 'permission-denied') {
       throw new Error(
@@ -47,7 +61,7 @@ export async function saveUserProfile(profile: UserProfile) {
     throw error
   }
 
-  return profile
+  return normalizeUserProfile(writePayload)
 }
 
 export async function getUserProfile(uid: string) {
