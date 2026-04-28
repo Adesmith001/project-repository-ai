@@ -20,10 +20,9 @@ export async function uploadPdfToCloudinary(
   const formData = new FormData()
   formData.append('file', file)
   formData.append('upload_preset', appEnv.cloudinaryUploadPreset)
-  formData.append('resource_type', 'raw')
   formData.append('folder', 'project-repository-ai')
 
-  const endpoint = `https://api.cloudinary.com/v1_1/${appEnv.cloudinaryCloudName}/raw/upload`
+  const endpoint = `https://api.cloudinary.com/v1_1/${appEnv.cloudinaryCloudName}/image/upload`
 
   return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest()
@@ -39,7 +38,15 @@ export async function uploadPdfToCloudinary(
 
     request.addEventListener('load', () => {
       if (request.status < 200 || request.status >= 300) {
-        reject(new Error('Cloudinary upload failed. Confirm your unsigned preset settings.'))
+        try {
+          const errorPayload = JSON.parse(request.responseText) as {
+            error?: { message?: string }
+          }
+          const message = errorPayload.error?.message?.trim()
+          reject(new Error(message || 'Cloudinary upload failed. Confirm your unsigned preset settings.'))
+        } catch {
+          reject(new Error('Cloudinary upload failed. Confirm your unsigned preset settings.'))
+        }
         return
       }
 

@@ -25,12 +25,30 @@ function parseKeywords(text: string) {
 }
 
 function parseAbstract(text: string) {
-  const abstractMatch = text.match(
-    /\babstract\b\s*[:\-]?\s*([\s\S]{120,3500}?)(?:\n\s*(?:keywords?|index terms?|introduction|chapter\s*1|1\.?\s*introduction)\b)/i,
-  )
+  const headingPattern = /(?:^|\n)\s*abstract\b\s*[:\-]?\s*/gi
+  const stopPattern = /\n\s*(?:keywords?|index terms?|introduction|chapter\s*\d+|[ivxlcdm]+\s+[a-z][^\n]{0,80}|[A-Z][A-Z\s]{6,})\b/i
+  const frontMatterPattern = /\b(certification|dedication|acknowledg(e)?ment|table of contents)\b/i
 
-  if (abstractMatch && abstractMatch[1]) {
-    return normalizeWhitespace(abstractMatch[1])
+  const candidates: string[] = []
+  let match: RegExpExecArray | null
+
+  while ((match = headingPattern.exec(text)) !== null) {
+    const sectionStart = match.index + match[0].length
+    const remainder = text.slice(sectionStart)
+    const stopMatch = remainder.match(stopPattern)
+    const sectionEnd = stopMatch && typeof stopMatch.index === 'number'
+      ? sectionStart + stopMatch.index
+      : Math.min(sectionStart + 4000, text.length)
+    const candidate = normalizeWhitespace(text.slice(sectionStart, sectionEnd))
+
+    if (candidate.length >= 120 && !frontMatterPattern.test(candidate.slice(0, 600))) {
+      candidates.push(candidate)
+    }
+  }
+
+  if (candidates.length > 0) {
+    // Prefer the most substantial abstract-like section.
+    return candidates.sort((a, b) => b.length - a.length)[0]
   }
 
   // Fallback: use the leading chunk when explicit abstract heading is absent.
@@ -67,7 +85,8 @@ async function extractPdfText(file: File, maxPages = 6) {
 
     for (const token of content.items) {
       if (isTextItem(token)) {
-        text += `${token.str} `
+        const hasEol = 'hasEOL' in token && Boolean((token as { hasEOL?: unknown }).hasEOL)
+        text += hasEol ? `${token.str}\n` : `${token.str} `
       }
     }
 

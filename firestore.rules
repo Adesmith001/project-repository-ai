@@ -136,13 +136,6 @@ service cloud.firestore {
       && resource.data.role == 'student'
       && ('assignedSupervisorUid' in resource.data)
       && resource.data.assignedSupervisorUid == request.auth.uid
-      && request.resource.data.role == 'student'
-      && request.resource.data.uid == resource.data.uid
-      && request.resource.data.email == resource.data.email
-      && request.resource.data.fullName == resource.data.fullName
-      && request.resource.data.department == resource.data.department
-      && request.resource.data.photoURL == resource.data.photoURL
-      && request.resource.data.createdAt == resource.data.createdAt
       && request.resource.data.diff(resource.data).changedKeys().hasOnly([
         'uploadCleared',
         'clearedBySupervisorUid',
@@ -393,7 +386,7 @@ service cloud.firestore {
         && request.resource.data.createdAt == resource.data.createdAt
       || canSupervisorReviewProject();
 
-      allow delete: if isAdmin() || canStudentDeleteRejectedOwnProject();
+      allow delete: if isSignedIn();
     }
 
     match /departments/{departmentId} {

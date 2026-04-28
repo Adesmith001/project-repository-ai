@@ -113,13 +113,23 @@ export async function setStudentUploadClearance(payload: {
 
   const now = new Date().toISOString()
 
-  await updateDoc(doc(db, 'users', payload.userId), {
-    uploadCleared: payload.cleared,
-    clearedBySupervisorUid: payload.cleared ? payload.actorUid : '',
-    clearedBySupervisorName: payload.cleared ? payload.actorName : '',
-    clearanceUpdatedAt: now,
-    updatedAt: now,
-  })
+  try {
+    await updateDoc(doc(db, 'users', payload.userId), {
+      uploadCleared: payload.cleared,
+      clearedBySupervisorUid: payload.cleared ? payload.actorUid : '',
+      clearedBySupervisorName: payload.cleared ? payload.actorName : '',
+      clearanceUpdatedAt: now,
+      updatedAt: now,
+    })
+  } catch (error) {
+    if (error instanceof FirebaseError && error.code === 'permission-denied') {
+      throw new Error(
+        'Missing or insufficient permissions while updating student clearance. Ensure the student is assigned to you and deploy the latest firestore.rules to the same Firebase project.',
+      )
+    }
+
+    throw error
+  }
 }
 
 export async function setStudentSupervisorAssignment(payload: {

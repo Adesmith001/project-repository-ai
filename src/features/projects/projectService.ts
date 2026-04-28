@@ -25,8 +25,8 @@ function normalizeProjectRecord(projectId: string, data: Partial<ProjectRecord>)
     supervisorUid: data.supervisorUid || '',
     studentName: data.studentName || '',
     studentUid: data.studentUid || '',
-    fileUrl: data.fileUrl || '',
-    filePublicId: data.filePublicId || '',
+    fileUrl: data.fileUrl?.trim() || '',
+    filePublicId: data.filePublicId?.trim() || '',
     status: data.status || 'pending',
     rejectionReason: data.rejectionReason || '',
     embedding: data.embedding || [],
@@ -124,6 +124,8 @@ export async function createProject(projectInput: ProjectInput) {
 
   const payload: Omit<ProjectRecord, 'id'> = {
     ...projectInput,
+    fileUrl: projectInput.fileUrl.trim(),
+    filePublicId: projectInput.filePublicId.trim(),
     embedding,
     createdAt: now,
     updatedAt: now,
@@ -146,6 +148,14 @@ export async function updateProject(projectId: string, input: Partial<ProjectInp
   const nextPayload: Partial<ProjectRecord> = {
     ...input,
     updatedAt: new Date().toISOString(),
+  }
+
+  if (typeof input.fileUrl === 'string') {
+    nextPayload.fileUrl = input.fileUrl.trim()
+  }
+
+  if (typeof input.filePublicId === 'string') {
+    nextPayload.filePublicId = input.filePublicId.trim()
   }
 
   if (input.title || input.abstract || input.keywords) {

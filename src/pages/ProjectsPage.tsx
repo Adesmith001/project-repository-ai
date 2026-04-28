@@ -359,19 +359,19 @@ export function ProjectsPage() {
                         <Link to={`/projects/${project.id}`}>
                           <Button size="sm" variant="outline">Open</Button>
                         </Link>
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          disabled={actionProjectId === project.id}
+                          onClick={() => void onDelete(project.id)}
+                        >
+                          Delete
+                        </Button>
                         {profile?.role === 'student' && project.studentUid === profile.uid && project.status === 'rejected' ? (
                           <>
                             <Link to={`/upload-project?resubmitFrom=${project.id}`}>
                               <Button size="sm" variant="secondary">Resubmit</Button>
                             </Link>
-                            <Button
-                              size="sm"
-                              variant="danger"
-                              disabled={actionProjectId === project.id}
-                              onClick={() => void onDelete(project.id)}
-                            >
-                              Delete
-                            </Button>
                           </>
                         ) : null}
                         {profile?.role === 'supervisor' && canSupervisorReview(project) ? (
@@ -423,9 +423,6 @@ export function ProjectsPage() {
                             <Link to={`/upload-project?edit=${project.id}`}>
                               <Button size="sm" variant="secondary">Edit</Button>
                             </Link>
-                            <Button size="sm" variant="danger" onClick={() => void onDelete(project.id)}>
-                              Delete
-                            </Button>
                           </>
                         ) : null}
                       </div>
