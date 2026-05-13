@@ -148,6 +148,11 @@ export function AdminUsersPage() {
       return
     }
 
+    if (nextRole === 'student' && target.role !== 'student') {
+      setError('Assigning a user to student from this page is blocked until a supervisor is selected.')
+      return
+    }
+
     try {
       setActionUserId(target.uid)
 
@@ -166,6 +171,8 @@ export function AdminUsersPage() {
             ? {
                 ...user,
                 role: nextRole,
+                assignedSupervisorUid: nextRole === 'student' ? user.assignedSupervisorUid : '',
+                assignedSupervisorName: nextRole === 'student' ? user.assignedSupervisorName : '',
                 uploadCleared: nextRole === 'student' ? false : true,
                 clearedBySupervisorUid: nextRole === 'student' ? '' : profile.uid,
                 clearedBySupervisorName: nextRole === 'student' ? '' : profile.fullName,
@@ -422,7 +429,7 @@ export function AdminUsersPage() {
                             className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none"
                             disabled={actionUserId === user.uid || profile.uid === user.uid}
                           >
-                            <option value="student">Student</option>
+                            <option value="student" disabled={user.role !== 'student'}>Student</option>
                             <option value="supervisor">Supervisor</option>
                             <option value="admin">Admin</option>
                           </select>

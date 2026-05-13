@@ -161,13 +161,26 @@ export async function setUserRole(payload: {
   }
 
   const now = new Date().toISOString()
-
-  await updateDoc(doc(db, 'users', payload.userId), {
+  const writePayload = removeUndefinedFields({
     role: payload.role,
+    assignedSupervisorUid: payload.role === 'student' ? undefined : '',
+    assignedSupervisorName: payload.role === 'student' ? undefined : '',
     uploadCleared: payload.role === 'student' ? false : true,
     clearedBySupervisorUid: payload.role === 'student' ? '' : payload.actorUid,
     clearedBySupervisorName: payload.role === 'student' ? '' : payload.actorName,
     clearanceUpdatedAt: now,
     updatedAt: now,
   })
+
+  try {
+    await updateDoc(doc(db, 'users', payload.userId), writePayload)
+  } catch (error) {
+    if (error instanceof FirebaseError && error.code === 'permission-denied') {
+      throw new Error(
+        'Missing or insufficient permissions while updating user role. Promote users to admin or supervisor from this page, and use the profile flow to create student accounts with supervisor assignment.',
+      )
+    }
+
+    throw error
+  }
 }
