@@ -41,7 +41,7 @@ service cloud.firestore {
     }
 
     function isValidProjectStatus(status) {
-      return status in ['approved', 'pending', 'rejected'];
+      return status in ['approved', 'pending_supervisor', 'pending_admin', 'rejected'];
     }
 
     function hasClearanceShape(data) {
@@ -94,6 +94,7 @@ service cloud.firestore {
         'photoURL',
         'department',
         'role',
+        'staffId',
         'assignedSupervisorUid',
         'assignedSupervisorName',
         'uploadCleared',
@@ -116,6 +117,7 @@ service cloud.firestore {
       && data.department.size() <= 120
       && data.role is string
       && isValidRole(data.role)
+      && (!("staffId" in data) || data.staffId is string)
       && hasOptionalSupervisorAssignmentShape(data)
       && hasValidSupervisorAssignment(data)
       && (
@@ -195,6 +197,7 @@ service cloud.firestore {
         'abstract',
         'keywords',
         'department',
+        'area',
         'year',
         'supervisor',
         'supervisorUid',
@@ -202,6 +205,7 @@ service cloud.firestore {
         'studentUid',
         'fileUrl',
         'filePublicId',
+        'fullText',
         'status',
         'rejectionReason',
         'embedding',
@@ -218,6 +222,7 @@ service cloud.firestore {
       && data.department is string
       && data.department.size() >= 2
       && data.department.size() <= 120
+      && data.area is string
       && data.year is int
       && data.year >= 2000
       && data.year <= 2100
@@ -239,6 +244,7 @@ service cloud.firestore {
       && data.fileUrl.size() > 10
       && data.filePublicId is string
       && data.filePublicId.size() > 0
+      && data.fullText is string
       && data.status is string
       && isValidProjectStatus(data.status)
       && data.rejectionReason is string
@@ -262,7 +268,7 @@ service cloud.firestore {
       && data.supervisor == requesterDoc().data.assignedSupervisorName
       && data.studentName == requesterDoc().data.fullName
       && data.rejectionReason == ''
-      && data.status == 'pending';
+      && data.status == 'pending_supervisor';
     }
 
     function isSupervisorAssignedToProject(project) {
@@ -351,6 +357,7 @@ service cloud.firestore {
         && request.resource.data.uid == resource.data.uid
         && request.resource.data.email == resource.data.email
         && request.resource.data.role == resource.data.role
+        && request.resource.data.get('staffId', '') == resource.data.get('staffId', '')
         && request.resource.data.assignedSupervisorUid == resource.data.assignedSupervisorUid
         && request.resource.data.assignedSupervisorName == resource.data.assignedSupervisorName
         && request.resource.data.uploadCleared == resource.data.uploadCleared
@@ -386,7 +393,7 @@ service cloud.firestore {
         && request.resource.data.createdAt == resource.data.createdAt
       || canSupervisorReviewProject();
 
-      allow delete: if isSignedIn();
+      allow delete: if isAdmin();
     }
 
     match /departments/{departmentId} {

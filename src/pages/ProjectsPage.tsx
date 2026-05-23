@@ -18,6 +18,7 @@ import { useErrorToast } from '../hooks/useErrorToast'
 import { removeProject, listProjects, updateProjectStatus } from '../features/projects/projectService'
 import { resetProjectFilters, setProjectFilter } from '../features/projects/projectFilterSlice'
 import { formatDate } from '../utils/date'
+import { AREAS } from '../lib/constants'
 import type { ProjectRecord } from '../types'
 
 export function ProjectsPage() {
@@ -164,20 +165,26 @@ export function ProjectsPage() {
     return [{ value: 'all', label: 'All Supervisors' }, ...uniqueSupervisors.map((item) => ({ value: item, label: item }))]
   }, [allProjects])
 
-  const yearOptions = useMemo(() => {
-    const years = Array.from(new Set(allProjects.map((item) => item.year))).sort((a, b) => b - a)
-    return [{ value: 'all', label: 'All Years' }, ...years.map((item) => ({ value: String(item), label: String(item) }))]
-  }, [allProjects])
+  const yearOptions = [
+    { value: 'all', label: 'All Years' },
+    { value: '2024', label: '2024' },
+    { value: '2023', label: '2023' },
+    { value: '2022', label: '2022' },
+    { value: '2021', label: '2021' },
+    { value: '2020', label: '2020' },
+  ]
 
   const statusMeta: Record<ProjectRecord['status'], { tone: 'success' | 'warning' | 'default'; label: string }> = {
     approved: { tone: 'success', label: 'Approved' },
-    pending: { tone: 'warning', label: 'Pending' },
+    pending_supervisor: { tone: 'warning', label: 'Pending (Supervisor)' },
+    pending_admin: { tone: 'warning', label: 'Pending (Admin)' },
     rejected: { tone: 'default', label: 'Rejected' },
   }
 
   const hasActiveFilters =
     filters.search.trim().length > 0 ||
     filters.department !== 'all' ||
+    filters.area !== 'all' ||
     filters.year !== 'all' ||
     filters.supervisor !== 'all' ||
     filters.status !== 'all'
@@ -211,7 +218,7 @@ export function ProjectsPage() {
         <Card className="p-5" hover>
           <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Pending</p>
           <p className="mt-2 text-3xl font-extrabold text-amber-700">
-            {projects.filter((project) => project.status === 'pending').length}
+            {projects.filter((project) => project.status.startsWith('pending')).length}
           </p>
           <p className="mt-1 text-xs text-slate-500">Awaiting institutional review</p>
         </Card>
@@ -253,7 +260,7 @@ export function ProjectsPage() {
           Filter controls
         </div>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
           <Input
             label="Search"
             placeholder="Title, abstract, keyword"
@@ -279,6 +286,16 @@ export function ProjectsPage() {
           />
 
           <Select
+            label="Area"
+            options={[
+              { value: 'all', label: 'All Areas' },
+              ...AREAS.map((item) => ({ value: item, label: item })),
+            ]}
+            value={filters.area}
+            onChange={(event) => dispatch(setProjectFilter({ key: 'area', value: event.target.value }))}
+          />
+
+          <Select
             label="Year"
             options={yearOptions}
             value={filters.year}
@@ -297,7 +314,8 @@ export function ProjectsPage() {
             options={[
               { value: 'all', label: 'All Statuses' },
               { value: 'approved', label: 'Approved' },
-              { value: 'pending', label: 'Pending' },
+              { value: 'pending_supervisor', label: 'Pending (Supervisor)' },
+              { value: 'pending_admin', label: 'Pending (Admin)' },
               { value: 'rejected', label: 'Rejected' },
             ]}
             value={filters.status}
@@ -345,7 +363,7 @@ export function ProjectsPage() {
                         <Link to={`/projects/${project.id}`} className="font-semibold text-slate-900 underline-offset-2 hover:underline">
                           {project.title}
                         </Link>
-                        <p className="mt-0.5 text-xs text-slate-500">{project.department} | {project.studentName}</p>
+                        <p className="mt-0.5 text-xs text-slate-500">{project.department} | {project.area} | {project.studentName}</p>
                       </div>
                     </td>
                     <td>{project.supervisor}</td>
@@ -359,14 +377,16 @@ export function ProjectsPage() {
                         <Link to={`/projects/${project.id}`}>
                           <Button size="sm" variant="outline">Open</Button>
                         </Link>
-                        <Button
-                          size="sm"
-                          variant="danger"
-                          disabled={actionProjectId === project.id}
-                          onClick={() => void onDelete(project.id)}
-                        >
-                          Delete
-                        </Button>
+                        {profile?.role === 'admin' ? (
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            disabled={actionProjectId === project.id}
+                            onClick={() => void onDelete(project.id)}
+                          >
+                            Delete
+                          </Button>
+                        ) : null}
                         {profile?.role === 'student' && project.studentUid === profile.uid && project.status === 'rejected' ? (
                           <>
                             <Link to={`/upload-project?resubmitFrom=${project.id}`}>
@@ -376,17 +396,17 @@ export function ProjectsPage() {
                         ) : null}
                         {profile?.role === 'supervisor' && canSupervisorReview(project) ? (
                           <>
-                            {project.status !== 'approved' ? (
+                            {project.status === 'pending_supervisor' ? (
                               <Button
                                 size="sm"
                                 variant="secondary"
                                 disabled={actionProjectId === project.id}
-                                onClick={() => void onReview(project, 'approved')}
+                                onClick={() => void onReview(project, 'pending_admin')}
                               >
                                 Approve
                               </Button>
                             ) : null}
-                            {project.status !== 'rejected' ? (
+                            {project.status !== 'rejected' && project.status !== 'approved' ? (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -400,7 +420,7 @@ export function ProjectsPage() {
                         ) : null}
                         {profile?.role === 'admin' ? (
                           <>
-                            {project.status === 'pending' ? (
+                            {project.status === 'pending_admin' || project.status === 'pending_supervisor' ? (
                               <Button
                                 size="sm"
                                 variant="secondary"

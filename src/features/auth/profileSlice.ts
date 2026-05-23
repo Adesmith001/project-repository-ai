@@ -36,6 +36,7 @@ export const ensureProfileFromRegisterThunk = createAsyncThunk(
       photoURL: undefined,
       department: payload.values.department,
       role: payload.values.role,
+      staffId: payload.values.staffId,
       assignedSupervisorUid: isStudent ? payload.values.assignedSupervisorUid || '' : '',
       assignedSupervisorName: isStudent ? payload.values.assignedSupervisorName || '' : '',
       uploadCleared: payload.values.role !== 'student',
@@ -60,6 +61,7 @@ export const ensureProfileForAuthUserThunk = createAsyncThunk(
     fullName?: string
     department?: string
     role?: RegisterPayload['role']
+    staffId?: string
     assignedSupervisorUid?: string
     assignedSupervisorName?: string
   }) => {
@@ -94,6 +96,7 @@ export const ensureProfileForAuthUserThunk = createAsyncThunk(
       photoURL: payload.photoURL,
       department: payload.department || DEPARTMENTS[0],
       role: payload.role || 'student',
+      staffId: payload.staffId,
       assignedSupervisorUid: (payload.role || 'student') === 'student' ? payload.assignedSupervisorUid || '' : '',
       assignedSupervisorName: (payload.role || 'student') === 'student' ? payload.assignedSupervisorName || '' : '',
       uploadCleared: (payload.role || 'student') !== 'student',

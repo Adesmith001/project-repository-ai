@@ -8,7 +8,7 @@ import { Input } from '../components/ui/Input'
 import { Select } from '../components/ui/Select'
 import { Textarea } from '../components/ui/Textarea'
 import { SectionHeading } from '../components/ui/SectionHeading'
-import { DEFAULT_DEPARTMENT } from '../lib/constants'
+import { AREAS, DEFAULT_DEPARTMENT } from '../lib/constants'
 import { uploadPdfToCloudinary } from '../lib/cloudinary'
 import { extractProjectMetadataFromPdf } from '../features/projects/documentExtractionService'
 import { createProject, getProjectById, updateProject } from '../features/projects/projectService'
@@ -21,7 +21,8 @@ import type { ProjectInput } from '../types'
 
 const statusOptions = [
   { value: 'approved', label: 'Approved' },
-  { value: 'pending', label: 'Pending' },
+  { value: 'pending_supervisor', label: 'Pending (Supervisor)' },
+  { value: 'pending_admin', label: 'Pending (Admin)' },
   { value: 'rejected', label: 'Rejected' },
 ]
 
@@ -39,6 +40,7 @@ export function UploadProjectPage() {
     abstract: '',
     keywords: [],
     department: DEFAULT_DEPARTMENT,
+    area: 'Both',
     year: new Date().getFullYear(),
     supervisor: '',
     supervisorUid: '',
@@ -46,7 +48,8 @@ export function UploadProjectPage() {
     studentUid: '',
     fileUrl: '',
     filePublicId: '',
-    status: 'pending',
+    fullText: '',
+    status: 'pending_supervisor',
     rejectionReason: '',
   })
   const [keywordText, setKeywordText] = useState('')
@@ -90,6 +93,7 @@ export function UploadProjectPage() {
           abstract: record.abstract,
           keywords: record.keywords,
           department: record.department,
+          area: record.area,
           year: record.year,
           supervisor: record.supervisor,
           supervisorUid: record.supervisorUid,
@@ -97,7 +101,8 @@ export function UploadProjectPage() {
           studentUid: record.studentUid,
           fileUrl: isResubmitMode ? '' : record.fileUrl,
           filePublicId: isResubmitMode ? '' : record.filePublicId,
-          status: isResubmitMode ? 'pending' : record.status,
+          fullText: isResubmitMode ? '' : record.fullText || '',
+          status: isResubmitMode ? 'pending_supervisor' : record.status,
           rejectionReason: isResubmitMode ? '' : record.rejectionReason,
         })
 
@@ -244,6 +249,7 @@ export function UploadProjectPage() {
         ...prev,
         title: prev.title.trim() ? prev.title : extracted.title || prev.title,
         abstract: prev.abstract.trim() ? prev.abstract : extracted.abstract || prev.abstract,
+        fullText: extracted.fullText || prev.fullText || '',
       }))
 
       setKeywordText((prev) => (prev.trim() ? prev : nextKeywords))
@@ -285,7 +291,7 @@ export function UploadProjectPage() {
         payload.studentUid = profile.uid
         payload.supervisorUid = profile.assignedSupervisorUid
         payload.supervisor = profile.assignedSupervisorName
-        payload.status = 'pending'
+        payload.status = 'pending_supervisor'
         payload.rejectionReason = ''
       }
 
@@ -487,8 +493,15 @@ export function UploadProjectPage() {
                 onChange={(event) => setForm((prev) => ({ ...prev, department: event.target.value }))}
               />
 
+              <Select
+                label="Area"
+                options={AREAS.map((item) => ({ value: item, label: item }))}
+                value={form.area}
+                onChange={(event) => setForm((prev) => ({ ...prev, area: event.target.value }))}
+              />
+
               {profile?.role === 'student' ? (
-                <Input label="Status" value="pending" disabled />
+                <Input label="Status" value="Pending Supervisor" disabled />
               ) : (
                 <Select
                   label="Status"

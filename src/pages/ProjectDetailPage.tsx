@@ -7,11 +7,13 @@ import { EmptyState } from '../components/states/EmptyState'
 import { ErrorState } from '../components/states/ErrorState'
 import { LoadingState } from '../components/states/LoadingState'
 import { getProjectById } from '../features/projects/projectService'
+import { useAppSelector } from '../hooks/useAppStore'
 import { formatDate } from '../utils/date'
 import type { ProjectRecord } from '../types'
 
 export function ProjectDetailPage() {
   const { id } = useParams()
+  const profile = useAppSelector((state) => state.profile.profile)
   const [project, setProject] = useState<ProjectRecord | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -75,11 +77,11 @@ export function ProjectDetailPage() {
           <div>
             <h2 className="text-2xl font-extrabold text-slate-950">{project.title}</h2>
             <p className="mt-1 text-sm text-slate-600">
-              {project.department} | {project.year} | Supervisor: {project.supervisor}
+              {project.department} | {project.area} | {project.year} | Supervisor: {project.supervisor}
             </p>
           </div>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium capitalize text-slate-700">
-            {project.status}
+            {project.status.replace('_', ' ')}
           </span>
         </div>
 
@@ -118,9 +120,11 @@ export function ProjectDetailPage() {
         ) : null}
 
         <div className="mt-6 flex flex-wrap gap-2">
-          <a href={project.fileUrl} target="_blank" rel="noreferrer">
-            <Button>Open PDF</Button>
-          </a>
+          {profile?.role !== 'student' ? (
+            <a href={project.fileUrl} target="_blank" rel="noreferrer">
+              <Button>Open PDF</Button>
+            </a>
+          ) : null}
           <Link to="/projects">
             <Button variant="secondary">Back to repository</Button>
           </Link>

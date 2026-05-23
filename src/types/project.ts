@@ -1,4 +1,4 @@
-export type ProjectStatus = 'approved' | 'pending' | 'rejected'
+export type ProjectStatus = 'approved' | 'pending_supervisor' | 'pending_admin' | 'rejected'
 
 export interface ProjectRecord {
   id: string
@@ -6,6 +6,7 @@ export interface ProjectRecord {
   abstract: string
   keywords: string[]
   department: string
+  area: string
   year: number
   supervisor: string
   supervisorUid: string
@@ -13,6 +14,7 @@ export interface ProjectRecord {
   studentUid: string
   fileUrl: string
   filePublicId: string
+  fullText?: string
   status: ProjectStatus
   rejectionReason: string
   embedding: number[]
@@ -25,6 +27,7 @@ export interface ProjectInput {
   abstract: string
   keywords: string[]
   department: string
+  area: string
   year: number
   supervisor: string
   supervisorUid: string
@@ -32,12 +35,14 @@ export interface ProjectInput {
   studentUid: string
   fileUrl: string
   filePublicId: string
+  fullText?: string
   status: ProjectStatus
   rejectionReason: string
 }
 
 export interface ProjectFilters {
   department: string
+  area: string
   year: string
   supervisor: string
   status: string

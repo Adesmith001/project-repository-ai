@@ -4,6 +4,7 @@ interface ExtractedProjectMetadata {
   title?: string
   abstract?: string
   keywords?: string[]
+  fullText?: string
 }
 
 function normalizeWhitespace(value: string) {
@@ -25,43 +26,75 @@ function parseKeywords(text: string) {
 }
 
 function parseAbstract(text: string) {
-  const headingPattern = /(?:^|\n)\s*abstract\b\s*[:\-]?\s*/gi
-  const stopPattern = /\n\s*(?:keywords?|index terms?|introduction|chapter\s*\d+|[ivxlcdm]+\s+[a-z][^\n]{0,80}|[A-Z][A-Z\s]{6,})\b/i
-  const frontMatterPattern = /\b(certification|dedication|acknowledg(e)?ment|table of contents)\b/i
+  let bestCandidate = ''
 
-  const candidates: string[] = []
-  let match: RegExpExecArray | null
+  // First pass: try to find abstract as a clear heading
+  const headingRegex = /(?:^|\n|\s{2,})\s*abstract\b\s*[:\-]?\s*/gi
+  let match
 
-  while ((match = headingPattern.exec(text)) !== null) {
-    const sectionStart = match.index + match[0].length
-    const remainder = text.slice(sectionStart)
-    const stopMatch = remainder.match(stopPattern)
-    const sectionEnd = stopMatch && typeof stopMatch.index === 'number'
-      ? sectionStart + stopMatch.index
-      : Math.min(sectionStart + 4000, text.length)
-    const candidate = normalizeWhitespace(text.slice(sectionStart, sectionEnd))
-
-    if (candidate.length >= 120 && !frontMatterPattern.test(candidate.slice(0, 600))) {
-      candidates.push(candidate)
+  while ((match = headingRegex.exec(text)) !== null) {
+    const start = match.index + match[0].length
+    const chunk = text.slice(start, start + 4000)
+    
+    const stopMatch = chunk.match(/\b(keywords?|index terms?|introduction|chapter\s*one|chapter\s*1|background of the study)\b/i)
+    const end = stopMatch ? stopMatch.index : chunk.length
+    
+    const candidate = normalizeWhitespace(chunk.slice(0, end))
+    
+    if (candidate.length > 150 && candidate.length > bestCandidate.length) {
+      bestCandidate = candidate
     }
   }
 
-  if (candidates.length > 0) {
-    // Prefer the most substantial abstract-like section.
-    return candidates.sort((a, b) => b.length - a.length)[0]
+  if (bestCandidate) {
+    return bestCandidate
   }
 
-  // Fallback: use the leading chunk when explicit abstract heading is absent.
-  return normalizeWhitespace(text.slice(0, 1000))
+  // Fallback: look for the word abstract anywhere
+  const fallbackRegex = /\babstract\b\s*[:\-]?\s*/gi
+  while ((match = fallbackRegex.exec(text)) !== null) {
+    const start = match.index + match[0].length
+    const chunk = text.slice(start, start + 4000)
+    
+    const stopMatch = chunk.match(/\b(keywords?|index terms?|introduction|chapter\s*one|chapter\s*1|background of the study)\b/i)
+    const end = stopMatch ? stopMatch.index : chunk.length
+    
+    const candidate = normalizeWhitespace(chunk.slice(0, end))
+    
+    // We only accept it if it's substantial, to avoid picking up the table of contents
+    if (candidate.length > 150 && candidate.length > bestCandidate.length) {
+      bestCandidate = candidate
+    }
+  }
+
+  return bestCandidate
 }
 
 function parseTitle(text: string) {
-  const firstLines = text
+  const lines = text
     .split(/\r?\n/)
     .map((line) => normalizeWhitespace(line))
-    .filter((line) => line.length >= 8)
+    .filter((line) => line.length >= 4)
 
-  return firstLines.find((line) => line.length <= 180)
+  const titleLines: string[] = []
+  
+  for (const line of lines) {
+    if (
+      /^(by|a project|a thesis|a dissertation|submitted|in partial|department of|college of|faculty of)\b/i.test(line) ||
+      /\b\d{2}[a-z]{2,3}\d{3,}\b/i.test(line)
+    ) {
+      break
+    }
+    
+    titleLines.push(line)
+    
+    if (titleLines.join(' ').length > 250) {
+      break
+    }
+  }
+
+  const joinedTitle = titleLines.join(' ')
+  return joinedTitle.length >= 10 ? joinedTitle : lines.find((line) => line.length <= 180)
 }
 
 function isTextItem(value: unknown): value is { str: string } {
@@ -71,12 +104,12 @@ function isTextItem(value: unknown): value is { str: string } {
     && typeof (value as { str?: unknown }).str === 'string'
 }
 
-async function extractPdfText(file: File, maxPages = 6) {
+async function extractPdfText(file: File) {
   const raw = await file.arrayBuffer()
   const document = await getPdfDocument(raw)
 
   const pages: string[] = []
-  const count = Math.min(document.numPages, maxPages)
+  const count = document.numPages
 
   for (let pageNumber = 1; pageNumber <= count; pageNumber += 1) {
     const page = await document.getPage(pageNumber)
@@ -111,5 +144,6 @@ export async function extractProjectMetadataFromPdf(file: File): Promise<Extract
     title,
     abstract: abstract.length >= 60 ? abstract : undefined,
     keywords,
+    fullText: text,
   }
 }

@@ -20,6 +20,7 @@ function normalizeProjectRecord(projectId: string, data: Partial<ProjectRecord>)
     abstract: data.abstract || '',
     keywords: data.keywords || [],
     department: data.department || '',
+    area: data.area || 'Both',
     year: data.year || new Date().getFullYear(),
     supervisor: data.supervisor || '',
     supervisorUid: data.supervisorUid || '',
@@ -27,7 +28,8 @@ function normalizeProjectRecord(projectId: string, data: Partial<ProjectRecord>)
     studentUid: data.studentUid || '',
     fileUrl: data.fileUrl?.trim() || '',
     filePublicId: data.filePublicId?.trim() || '',
-    status: data.status || 'pending',
+    fullText: data.fullText || '',
+    status: data.status || 'pending_supervisor',
     rejectionReason: data.rejectionReason || '',
     embedding: data.embedding || [],
     createdAt: data.createdAt || '',
@@ -35,7 +37,10 @@ function normalizeProjectRecord(projectId: string, data: Partial<ProjectRecord>)
   }
 }
 
-function createSemanticInput(input: Pick<ProjectInput, 'title' | 'abstract' | 'keywords'>) {
+function createSemanticInput(input: Pick<ProjectInput, 'title' | 'abstract' | 'keywords' | 'fullText'>) {
+  if (input.fullText && input.fullText.trim().length > 0) {
+    return input.fullText
+  }
   return [input.title, input.abstract, input.keywords.join(', ')].join('\n')
 }
 
@@ -56,6 +61,9 @@ function applyClientFilters(projects: ProjectRecord[], filters?: Partial<Project
     const byDepartment =
       !filters.department || filters.department === 'all' || project.department === filters.department
 
+    const byArea =
+      !filters.area || filters.area === 'all' || project.area === filters.area
+
     const byYear =
       !filters.year || filters.year === 'all' || String(project.year) === String(filters.year)
 
@@ -71,7 +79,7 @@ function applyClientFilters(projects: ProjectRecord[], filters?: Partial<Project
       project.abstract.toLowerCase().includes(searchValue) ||
       project.keywords.some((item) => item.toLowerCase().includes(searchValue))
 
-    return byDepartment && byYear && bySupervisor && byStatus && bySearch
+    return byDepartment && byArea && byYear && bySupervisor && byStatus && bySearch
   })
 }
 
@@ -80,6 +88,10 @@ export async function listProjects(filters?: Partial<ProjectFilters>) {
 
   if (filters?.department && filters.department !== 'all') {
     clauses.push(where('department', '==', filters.department))
+  }
+
+  if (filters?.area && filters.area !== 'all') {
+    clauses.push(where('area', '==', filters.area))
   }
 
   if (filters?.status && filters.status !== 'all') {
@@ -158,7 +170,7 @@ export async function updateProject(projectId: string, input: Partial<ProjectInp
     nextPayload.filePublicId = input.filePublicId.trim()
   }
 
-  if (input.title || input.abstract || input.keywords) {
+  if (input.title || input.abstract || input.keywords || input.fullText) {
     const current = await getProjectById(projectId)
 
     if (current) {
@@ -167,6 +179,7 @@ export async function updateProject(projectId: string, input: Partial<ProjectInp
           title: input.title || current.title,
           abstract: input.abstract || current.abstract,
           keywords: input.keywords || current.keywords,
+          fullText: input.fullText || current.fullText,
         }),
       )
     }
