@@ -133,7 +133,8 @@ export function DashboardPage() {
 
   const statusPillClass: Record<ProjectStatus, string> = {
     approved: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-    pending: 'border-amber-200 bg-amber-50 text-amber-700',
+    pending_supervisor: 'border-amber-200 bg-amber-50 text-amber-700',
+    pending_admin: 'border-amber-200 bg-amber-50 text-amber-700',
     rejected: 'border-rose-200 bg-rose-50 text-rose-700',
   }
 
