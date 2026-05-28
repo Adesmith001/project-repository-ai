@@ -15,6 +15,7 @@ import { LoadingState } from '../components/states/LoadingState'
 import { useAppDispatch, useAppSelector } from '../hooks/useAppStore'
 import { useDepartments } from '../hooks/useDepartments'
 import { useErrorToast } from '../hooks/useErrorToast'
+import { canUseSupervisorMode, getAuthorizedRole } from '../lib/authz'
 import { removeProject, listProjects, updateProjectStatus } from '../features/projects/projectService'
 import { resetProjectFilters, setProjectFilter } from '../features/projects/projectFilterSlice'
 import { formatDate } from '../utils/date'
@@ -25,6 +26,7 @@ export function ProjectsPage() {
   const dispatch = useAppDispatch()
   const filters = useAppSelector((state) => state.projectFilters.filters)
   const profile = useAppSelector((state) => state.profile.profile)
+  const authorizedRole = getAuthorizedRole(profile)
   const { departments } = useDepartments()
 
   const [projects, setProjects] = useState<ProjectRecord[]>([])
@@ -85,18 +87,15 @@ export function ProjectsPage() {
   }
 
   function canSupervisorReview(project: ProjectRecord) {
-    if (!profile || profile.role !== 'supervisor') {
+    if (!profile || authorizedRole !== 'supervisor' || !canUseSupervisorMode(profile)) {
       return false
     }
 
-    const hasUidMatch = project.supervisorUid.trim().length > 0 && project.supervisorUid === profile.uid
-    const hasNameMatch = project.supervisor.trim().toLowerCase() === profile.fullName.trim().toLowerCase()
-
-    return hasUidMatch || hasNameMatch
+    return project.supervisorUid.trim().length > 0 && project.supervisorUid === profile.uid
   }
 
   async function onReview(project: ProjectRecord, nextStatus: ProjectRecord['status'], rejectionReason?: string) {
-    if (!profile || (profile.role !== 'supervisor' && profile.role !== 'admin')) {
+    if (!profile || (authorizedRole !== 'supervisor' && authorizedRole !== 'admin')) {
       return
     }
 
@@ -110,7 +109,9 @@ export function ProjectsPage() {
         actor: {
           uid: profile.uid,
           fullName: profile.fullName,
-          role: profile.role,
+          role: authorizedRole,
+          email: profile.email,
+          staffId: profile.staffId,
         },
       })
 
@@ -377,7 +378,7 @@ export function ProjectsPage() {
                         <Link to={`/projects/${project.id}`}>
                           <Button size="sm" variant="outline">Open</Button>
                         </Link>
-                        {profile?.role === 'admin' ? (
+                        {authorizedRole === 'admin' ? (
                           <Button
                             size="sm"
                             variant="danger"
@@ -387,14 +388,14 @@ export function ProjectsPage() {
                             Delete
                           </Button>
                         ) : null}
-                        {profile?.role === 'student' && project.studentUid === profile.uid && project.status === 'rejected' ? (
+                        {authorizedRole === 'student' && project.studentUid === profile?.uid && project.status === 'rejected' ? (
                           <>
                             <Link to={`/upload-project?resubmitFrom=${project.id}`}>
                               <Button size="sm" variant="secondary">Resubmit</Button>
                             </Link>
                           </>
                         ) : null}
-                        {profile?.role === 'supervisor' && canSupervisorReview(project) ? (
+                        {authorizedRole === 'supervisor' && canSupervisorReview(project) ? (
                           <>
                             {project.status === 'pending_supervisor' ? (
                               <Button
@@ -418,7 +419,7 @@ export function ProjectsPage() {
                             ) : null}
                           </>
                         ) : null}
-                        {profile?.role === 'admin' ? (
+                        {authorizedRole === 'admin' ? (
                           <>
                             {project.status === 'pending_admin' || project.status === 'pending_supervisor' ? (
                               <Button

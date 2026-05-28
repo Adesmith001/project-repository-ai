@@ -11,11 +11,13 @@ import { listProjects } from '../features/projects/projectService'
 import { listUserProfiles } from '../features/auth/profileService'
 import { dashboardSummary } from '../features/dashboard/dashboardUtils'
 import { useAppSelector } from '../hooks/useAppStore'
+import { getAuthorizedRole } from '../lib/authz'
 import { formatDate } from '../utils/date'
 import type { ProjectRecord, ProjectStatus, UserProfile } from '../types'
 
 export function DashboardPage() {
   const profile = useAppSelector((state) => state.profile.profile)
+  const authorizedRole = getAuthorizedRole(profile)
   const [projects, setProjects] = useState<ProjectRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -57,7 +59,7 @@ export function DashboardPage() {
     let mounted = true
 
     async function loadSupervisees() {
-      if (!profile || profile.role !== 'supervisor') {
+      if (!profile || authorizedRole !== 'supervisor') {
         if (mounted) {
           setSupervisees([])
         }
@@ -86,15 +88,15 @@ export function DashboardPage() {
     return () => {
       mounted = false
     }
-  }, [profile])
+  }, [authorizedRole, profile])
 
   const summary = useMemo(() => {
     if (!profile) {
       return null
     }
 
-    return dashboardSummary(projects, profile.role)
-  }, [projects, profile])
+    return dashboardSummary(projects, authorizedRole)
+  }, [authorizedRole, projects, profile])
 
   const yearOptions = useMemo(() => {
     return Array.from(new Set(projects.map((project) => String(project.year)))).sort((a, b) => Number(b) - Number(a))
@@ -144,9 +146,9 @@ export function DashboardPage() {
         eyebrow="Dashboard"
         title={`Welcome back, ${profile.fullName}`}
         description={
-          profile.role === 'student'
+          authorizedRole === 'student'
             ? 'Track repository quality and browse recent records from a single command interface.'
-            : profile.role === 'supervisor'
+            : authorizedRole === 'supervisor'
               ? 'Monitor submissions, spot review bottlenecks, and guide stronger topic direction.'
               : 'Oversee governance, active submissions, and repository operations at a glance.'
         }
@@ -175,7 +177,7 @@ export function DashboardPage() {
         </Card>
       </div>
 
-      {profile.role === 'supervisor' ? (
+      {authorizedRole === 'supervisor' ? (
         <Card className="p-5" hover>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
@@ -211,7 +213,7 @@ export function DashboardPage() {
               <p className="mt-1 text-sm text-slate-500">Track records, status movement, and review readiness in one place.</p>
             </div>
 
-            {profile.role === 'admin' ? (
+            {authorizedRole === 'admin' ? (
               <Link to="/upload-project">
                 <Button size="sm" className="h-9 gap-1 bg-blue-600 px-3 text-white hover:bg-blue-500">
                   <Plus size={14} />
@@ -219,7 +221,7 @@ export function DashboardPage() {
                 </Button>
               </Link>
             ) : (
-              <Link to={profile.role === 'supervisor' ? '/projects' : '/check-topic'}>
+              <Link to={authorizedRole === 'supervisor' ? '/projects' : '/check-topic'}>
                 <Button size="sm" variant="secondary">
                   Open workspace
                 </Button>
@@ -232,7 +234,7 @@ export function DashboardPage() {
           <div className="flex flex-wrap items-center gap-2">
             <Badge tone="accent">Overview</Badge>
             <Badge tone="default">Repository</Badge>
-            {(profile.role === 'student' || profile.role === 'admin') && <Badge tone="default">Topic Checker</Badge>}
+            {(authorizedRole === 'student' || authorizedRole === 'admin') && <Badge tone="default">Topic Checker</Badge>}
             <Badge tone="default">Insights</Badge>
           </div>
 

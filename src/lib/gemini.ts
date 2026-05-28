@@ -111,10 +111,23 @@ function parseJsonResponse(rawText: string) {
 
 function fallbackEmbedding(input: string) {
   const vector = Array.from({ length: EMBEDDING_DIMENSION }, () => 0)
+  const tokens = input
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length > 2)
 
-  for (let index = 0; index < input.length; index += 1) {
-    const charCode = input.charCodeAt(index)
-    vector[index % EMBEDDING_DIMENSION] += charCode / 255
+  for (const token of tokens) {
+    let hash = 0
+
+    for (let index = 0; index < token.length; index += 1) {
+      hash = ((hash << 5) - hash) + token.charCodeAt(index)
+      hash |= 0
+    }
+
+    const bucket = Math.abs(hash) % EMBEDDING_DIMENSION
+    vector[bucket] += 1
   }
 
   const magnitude = Math.sqrt(vector.reduce((acc, value) => acc + value * value, 0)) || 1

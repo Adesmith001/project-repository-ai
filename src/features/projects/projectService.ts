@@ -9,6 +9,7 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore'
+import { canUseSupervisorMode } from '../../lib/authz'
 import { createEmbedding } from '../../lib/gemini'
 import { db } from '../../lib/firebase'
 import type { ProjectFilters, ProjectInput, ProjectRecord, UserProfile } from '../../types'
@@ -200,7 +201,7 @@ export async function updateProjectStatus(payload: {
   projectId: string
   status: ProjectRecord['status']
   rejectionReason?: string
-  actor: Pick<UserProfile, 'uid' | 'fullName' | 'role'>
+  actor: Pick<UserProfile, 'uid' | 'fullName' | 'role' | 'email' | 'staffId'>
 }) {
   if (!db) {
     throw new Error('Firestore is not configured.')
@@ -217,10 +218,13 @@ export async function updateProjectStatus(payload: {
   }
 
   if (payload.actor.role === 'supervisor') {
-    const hasUidMatch = project.supervisorUid.trim().length > 0 && project.supervisorUid === payload.actor.uid
-    const hasNameMatch = project.supervisor.trim().toLowerCase() === payload.actor.fullName.trim().toLowerCase()
+    if (!canUseSupervisorMode(payload.actor)) {
+      throw new Error('Supervisor mode is limited to eligible CU staff accounts.')
+    }
 
-    if (!hasUidMatch && !hasNameMatch) {
+    const hasUidMatch = project.supervisorUid.trim().length > 0 && project.supervisorUid === payload.actor.uid
+
+    if (!hasUidMatch) {
       throw new Error('You can only review projects assigned to you.')
     }
   }

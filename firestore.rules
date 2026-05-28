@@ -5,6 +5,11 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isCuStaffEmail(email) {
+      return email is string
+        && email.matches('^[^@]+@covenantuniversity\\.edu\\.ng$');
+    }
+
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
@@ -25,8 +30,21 @@ service cloud.firestore {
       return requesterProfileExists() && requesterDoc().data.role == 'admin';
     }
 
+    function hasSupervisorIdentity(data) {
+      return data.role != 'supervisor'
+        || (
+          isCuStaffEmail(data.email)
+          && ('staffId' in data)
+          && data.staffId is string
+          && data.staffId.size() >= 2
+          && data.staffId.size() <= 64
+        );
+    }
+
     function isSupervisor() {
-      return requesterProfileExists() && requesterDoc().data.role == 'supervisor';
+      return requesterProfileExists()
+        && requesterDoc().data.role == 'supervisor'
+        && hasSupervisorIdentity(requesterDoc().data);
     }
 
     function isClearedStudent() {
@@ -74,6 +92,7 @@ service cloud.firestore {
                 && data.assignedSupervisorName.size() >= 2
                 && supervisorDoc(data.assignedSupervisorUid).data != null
                 && supervisorDoc(data.assignedSupervisorUid).data.role == 'supervisor'
+                && hasSupervisorIdentity(supervisorDoc(data.assignedSupervisorUid).data)
                 && supervisorDoc(data.assignedSupervisorUid).data.fullName == data.assignedSupervisorName)
               || (isAdmin()
                 && data.assignedSupervisorUid == ''
@@ -118,6 +137,7 @@ service cloud.firestore {
       && data.role is string
       && isValidRole(data.role)
       && (!("staffId" in data) || data.staffId is string)
+      && hasSupervisorIdentity(data)
       && hasOptionalSupervisorAssignmentShape(data)
       && hasValidSupervisorAssignment(data)
       && (
@@ -169,6 +189,7 @@ service cloud.firestore {
       && request.resource.data.assignedSupervisorName.size() >= 2
       && supervisorDoc(request.resource.data.assignedSupervisorUid).data != null
       && supervisorDoc(request.resource.data.assignedSupervisorUid).data.role == 'supervisor'
+      && hasSupervisorIdentity(supervisorDoc(request.resource.data.assignedSupervisorUid).data)
       && supervisorDoc(request.resource.data.assignedSupervisorUid).data.fullName == request.resource.data.assignedSupervisorName
       && request.resource.data.diff(resource.data).changedKeys().hasOnly([
         'assignedSupervisorUid',
@@ -273,13 +294,9 @@ service cloud.firestore {
 
     function isSupervisorAssignedToProject(project) {
       return isSupervisor()
-      && (
-        (('supervisorUid' in project)
-          && project.supervisorUid is string
-          && project.supervisorUid == request.auth.uid)
-        || (project.supervisor is string
-          && project.supervisor == requesterDoc().data.fullName)
-      );
+      && ('supervisorUid' in project)
+      && project.supervisorUid is string
+      && project.supervisorUid == request.auth.uid;
     }
 
     function canSupervisorReviewProject() {
@@ -357,7 +374,6 @@ service cloud.firestore {
         && request.resource.data.uid == resource.data.uid
         && request.resource.data.email == resource.data.email
         && request.resource.data.role == resource.data.role
-        && request.resource.data.get('staffId', '') == resource.data.get('staffId', '')
         && request.resource.data.assignedSupervisorUid == resource.data.assignedSupervisorUid
         && request.resource.data.assignedSupervisorName == resource.data.assignedSupervisorName
         && request.resource.data.uploadCleared == resource.data.uploadCleared

@@ -2,10 +2,13 @@ import { Card } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
 import { SectionHeading } from '../components/ui/SectionHeading'
 import { useAppSelector } from '../hooks/useAppStore'
+import { canUseSupervisorMode, getAuthorizedRole } from '../lib/authz'
 import { ShieldCheck, UserRound } from 'lucide-react'
 
 export function SettingsProfilePage() {
   const profile = useAppSelector((state) => state.profile.profile)
+  const authorizedRole = getAuthorizedRole(profile)
+  const supervisorRestricted = Boolean(profile?.role === 'supervisor' && !canUseSupervisorMode(profile))
 
   return (
     <div className="space-y-6 py-4">
@@ -27,7 +30,7 @@ export function SettingsProfilePage() {
 
         <Card className="p-5" hover>
           <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Role</p>
-          <p className="mt-2 text-lg font-extrabold capitalize text-slate-950">{profile?.role || 'student'}</p>
+          <p className="mt-2 text-lg font-extrabold capitalize text-slate-950">{authorizedRole}</p>
           <p className="mt-1 text-xs text-slate-500">Governed by institutional admin settings.</p>
         </Card>
 
@@ -62,7 +65,7 @@ export function SettingsProfilePage() {
             <p className="text-sm text-slate-600">{profile?.email || 'No email available'}</p>
           </div>
 
-          <Badge className="ml-auto capitalize">{profile?.role || 'student'}</Badge>
+          <Badge className="ml-auto capitalize">{authorizedRole}</Badge>
         </div>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -76,11 +79,23 @@ export function SettingsProfilePage() {
               Roles are managed by administrators in Firestore to maintain institutional control.
             </p>
           </div>
+          <div className="soft-panel p-4">
+            <p className="text-xs uppercase tracking-[0.16em] text-slate-500">CU Staff ID</p>
+            <p className="mt-2 text-sm font-semibold text-slate-900">{profile?.staffId || 'Not provided'}</p>
+          </div>
           {profile?.role === 'student' ? (
             <div className="soft-panel p-4 sm:col-span-2">
               <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Assigned Supervisor</p>
               <p className="mt-2 text-sm font-semibold text-slate-900">
                 {profile.assignedSupervisorName || 'Not assigned'}
+              </p>
+            </div>
+          ) : null}
+          {supervisorRestricted ? (
+            <div className="soft-panel border border-amber-200 bg-amber-50 p-4 sm:col-span-2">
+              <p className="text-xs uppercase tracking-[0.16em] text-amber-700">Supervisor Access Locked</p>
+              <p className="mt-2 text-sm text-amber-900">
+                Add a valid CU staff ID to your profile and use a `@covenantuniversity.edu.ng` account to regain supervisor mode.
               </p>
             </div>
           ) : null}

@@ -14,10 +14,12 @@ import { formatDate } from '../utils/date'
 import { useAppSelector } from '../hooks/useAppStore'
 import { useErrorToast } from '../hooks/useErrorToast'
 import { useDepartments } from '../hooks/useDepartments'
+import { canUseSupervisorMode, getAuthorizedRole } from '../lib/authz'
 import type { UserProfile } from '../types'
 
 export function AdminUsersPage() {
   const profile = useAppSelector((state) => state.profile.profile)
+  const authorizedRole = getAuthorizedRole(profile)
   const [users, setUsers] = useState<UserProfile[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -68,8 +70,8 @@ export function AdminUsersPage() {
 
   const filteredUsers = useMemo(() => {
     const query = searchTerm.trim().toLowerCase()
-    const sourceUsers = profile?.role === 'supervisor'
-      ? users.filter((user) => user.role === 'student' && user.assignedSupervisorUid === profile.uid)
+    const sourceUsers = authorizedRole === 'supervisor'
+      ? users.filter((user) => user.role === 'student' && user.assignedSupervisorUid === profile?.uid)
       : users
 
     return sourceUsers
@@ -86,7 +88,7 @@ export function AdminUsersPage() {
         return bySearch && byRole && byDepartment
       })
       .sort((a, b) => a.fullName.localeCompare(b.fullName))
-  }, [users, searchTerm, roleFilter, departmentFilter, profile])
+  }, [users, searchTerm, roleFilter, departmentFilter, authorizedRole, profile])
 
   const hasActiveFilters = searchTerm.trim().length > 0 || roleFilter !== 'all' || departmentFilter !== 'all'
 
@@ -97,11 +99,11 @@ export function AdminUsersPage() {
   }
 
   async function onToggleStudentClearance(target: UserProfile) {
-    if (!profile || (profile.role !== 'admin' && profile.role !== 'supervisor')) {
+    if (!profile || (authorizedRole !== 'admin' && authorizedRole !== 'supervisor')) {
       return
     }
 
-    if (profile.role === 'supervisor' && target.assignedSupervisorUid !== profile.uid) {
+    if (authorizedRole === 'supervisor' && target.assignedSupervisorUid !== profile.uid) {
       setError('You can only clear students assigned to you.')
       return
     }
@@ -138,7 +140,7 @@ export function AdminUsersPage() {
   }
 
   async function onAssignRole(target: UserProfile) {
-    if (!profile || profile.role !== 'admin') {
+    if (!profile || authorizedRole !== 'admin') {
       return
     }
 
@@ -192,7 +194,7 @@ export function AdminUsersPage() {
   async function onCreateDepartment(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
-    if (!profile || profile.role !== 'admin') {
+    if (!profile || authorizedRole !== 'admin') {
       return
     }
 
@@ -223,6 +225,10 @@ export function AdminUsersPage() {
     }
   }
 
+  const totalEligibleSupervisors = users.filter((user) =>
+    canUseSupervisorMode({ role: 'supervisor', email: user.email, staffId: user.staffId }),
+  ).length
+
   if (loading) {
     return <LoadingState />
   }
@@ -239,9 +245,9 @@ export function AdminUsersPage() {
     <div className="space-y-6 py-4">
       <SectionHeading
         eyebrow="Admin"
-        title={profile?.role === 'supervisor' ? 'Supervisee administration' : 'User administration'}
+        title={authorizedRole === 'supervisor' ? 'Supervisee administration' : 'User administration'}
         description={
-          profile?.role === 'supervisor'
+          authorizedRole === 'supervisor'
             ? 'Review and clear only the students assigned to your supervision roster.'
             : 'Role and profile oversight for students, supervisors, and administrators.'
         }
@@ -263,7 +269,7 @@ export function AdminUsersPage() {
 
         <Card className="p-5" hover>
           <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Supervisors</p>
-          <p className="mt-2 text-3xl font-extrabold text-slate-950">{users.filter((user) => user.role === 'supervisor').length}</p>
+          <p className="mt-2 text-3xl font-extrabold text-slate-950">{totalEligibleSupervisors}</p>
         </Card>
 
         <Card className="p-5" hover>
@@ -272,7 +278,7 @@ export function AdminUsersPage() {
         </Card>
       </div>
 
-      {profile?.role === 'admin' ? (
+      {authorizedRole === 'admin' ? (
         <Card className="p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -380,6 +386,7 @@ export function AdminUsersPage() {
                   <th>Name</th>
                   <th>Email</th>
                   <th>Department</th>
+                  <th>Staff ID</th>
                   <th>Assigned Supervisor</th>
                   <th>Role</th>
                   <th>Upload Clearance</th>
@@ -401,6 +408,7 @@ export function AdminUsersPage() {
                     </td>
                     <td>{user.email}</td>
                     <td>{user.department}</td>
+                    <td>{user.staffId || '-'}</td>
                     <td>{user.assignedSupervisorName || '-'}</td>
                     <td>
                       <Badge tone={roleTone[user.role]} className="capitalize">{user.role}</Badge>
@@ -416,8 +424,12 @@ export function AdminUsersPage() {
                     </td>
                     <td>{formatDate(user.createdAt)}</td>
                     <td>
-                      {profile?.role === 'admin' ? (
+                      {authorizedRole === 'admin' ? (
                         <div className="flex items-center gap-2">
+                          {/*
+                            Supervisor assignment is intentionally restricted to CU staff accounts
+                            with a populated staff ID.
+                          */}
                           <select
                             value={roleDrafts[user.uid] || user.role}
                             onChange={(event) =>
@@ -427,10 +439,15 @@ export function AdminUsersPage() {
                               }))
                             }
                             className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none"
-                            disabled={actionUserId === user.uid || profile.uid === user.uid}
+                            disabled={actionUserId === user.uid || profile?.uid === user.uid}
                           >
                             <option value="student" disabled={user.role !== 'student'}>Student</option>
-                            <option value="supervisor">Supervisor</option>
+                          <option
+                            value="supervisor"
+                            disabled={!canUseSupervisorMode({ role: 'supervisor', email: user.email, staffId: user.staffId })}
+                          >
+                            Supervisor
+                          </option>
                             <option value="admin">Admin</option>
                           </select>
 
@@ -440,7 +457,7 @@ export function AdminUsersPage() {
                             onClick={() => void onAssignRole(user)}
                             disabled={
                               actionUserId === user.uid
-                              || profile.uid === user.uid
+                              || profile?.uid === user.uid
                               || (roleDrafts[user.uid] || user.role) === user.role
                             }
                           >
@@ -456,7 +473,7 @@ export function AdminUsersPage() {
                         <Button
                           size="sm"
                           variant={user.uploadCleared ? 'secondary' : 'outline'}
-                          disabled={actionUserId === user.uid || (profile?.role === 'supervisor' && user.assignedSupervisorUid !== profile.uid)}
+                          disabled={actionUserId === user.uid || (authorizedRole === 'supervisor' && user.assignedSupervisorUid !== profile?.uid)}
                           onClick={() => void onToggleStudentClearance(user)}
                         >
                           {user.uploadCleared ? 'Revoke' : 'Clear'}
@@ -470,7 +487,7 @@ export function AdminUsersPage() {
 
                 {filteredUsers.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="text-center text-sm text-slate-500">No users match the current filters.</td>
+                    <td colSpan={10} className="text-center text-sm text-slate-500">No users match the current filters.</td>
                   </tr>
                 ) : null}
               </tbody>

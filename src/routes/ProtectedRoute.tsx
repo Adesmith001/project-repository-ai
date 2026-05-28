@@ -2,6 +2,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { AppShell } from '../components/layout/AppShell'
 import { LoadingState } from '../components/states/LoadingState'
 import { useAppSelector } from '../hooks/useAppStore'
+import { getAuthorizedRole } from '../lib/authz'
 import type { UserRole } from '../types'
 
 interface ProtectedRouteProps {
@@ -33,12 +34,14 @@ export function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
     return <Navigate to="/complete-profile" replace />
   }
 
-  if (allowedRoles && !allowedRoles.includes(profile.role)) {
+  const authorizedRole = getAuthorizedRole(profile)
+
+  if (allowedRoles && !allowedRoles.includes(authorizedRole)) {
     return <Navigate to="/dashboard" replace />
   }
 
   return (
-    <AppShell profile={profile}>
+    <AppShell profile={profile} authorizedRole={authorizedRole}>
       <Outlet />
     </AppShell>
   )

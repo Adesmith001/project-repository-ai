@@ -6,9 +6,10 @@ import { Input } from '../components/ui/Input'
 import { LoadingState } from '../components/states/LoadingState'
 import { Select } from '../components/ui/Select'
 import { ensureProfileForAuthUserThunk, fetchProfileThunk } from '../features/auth/profileSlice'
-import { listSupervisorProfiles, setStudentSupervisorAssignment } from '../features/auth/profileService'
+import { listSupervisorProfiles, saveUserProfile, setStudentSupervisorAssignment } from '../features/auth/profileService'
 import { useAppDispatch, useAppSelector } from '../hooks/useAppStore'
 import { useErrorToast } from '../hooks/useErrorToast'
+import { canUseSupervisorMode, CU_SUPERVISOR_EMAIL_DOMAIN, hasCuStaffId, hasCuSupervisorEmail } from '../lib/authz'
 import { DEFAULT_DEPARTMENT } from '../lib/constants'
 import { useDepartments } from '../hooks/useDepartments'
 import type { RegisterPayload } from '../types'
@@ -44,6 +45,7 @@ export function CompleteProfilePage() {
   const [fullName, setFullName] = useState(() => user?.displayName?.trim() || user?.email.split('@')[0] || '')
   const [department, setDepartment] = useState(DEFAULT_DEPARTMENT)
   const [role, setRole] = useState<RegisterPayload['role']>('student')
+  const [staffId, setStaffId] = useState('')
   const [localError, setLocalError] = useState('')
   const [supervisorOptions, setSupervisorOptions] = useState<Array<{ value: string; label: string; name: string }>>([])
   const [selectedSupervisorUid, setSelectedSupervisorUid] = useState('')
@@ -126,6 +128,7 @@ export function CompleteProfilePage() {
     setFullName((prev) => profile.fullName || prev)
     setDepartment((prev) => profile.department || prev)
     setRole(profile.role === 'admin' ? 'student' : profile.role)
+    setStaffId(profile.staffId || '')
 
     if (profile.assignedSupervisorUid) {
       setSelectedSupervisorUid(profile.assignedSupervisorUid)
@@ -143,8 +146,14 @@ export function CompleteProfilePage() {
   const requiresSupervisorAssignment = Boolean(
     profile && profile.role === 'student' && !profile.assignedSupervisorUid.trim(),
   )
+  const requiresSupervisorEligibilityUpdate = Boolean(
+    profile
+      && profile.role === 'supervisor'
+      && hasCuSupervisorEmail(profile.email)
+      && !canUseSupervisorMode(profile),
+  )
 
-  if (profile && !requiresSupervisorAssignment) {
+  if (profile && !requiresSupervisorAssignment && !requiresSupervisorEligibilityUpdate) {
     return <Navigate to="/dashboard" replace />
   }
 
@@ -176,12 +185,32 @@ export function CompleteProfilePage() {
       return
     }
 
+    if (role === 'supervisor' && !hasCuSupervisorEmail(activeUser.email)) {
+      setLocalError(`Only ${CU_SUPERVISOR_EMAIL_DOMAIN} accounts can enter supervisor mode.`)
+      return
+    }
+
+    if (role === 'supervisor' && !hasCuStaffId(staffId)) {
+      setLocalError('Enter your CU staff ID before continuing as a supervisor.')
+      return
+    }
+
     try {
       if (requiresSupervisorAssignment && profile) {
         await setStudentSupervisorAssignment({
           userId: profile.uid,
           supervisorUid: selectedSupervisorUid,
           supervisorName: selectedSupervisor?.name || '',
+        })
+
+        await dispatch(fetchProfileThunk(activeUser.uid)).unwrap()
+      } else if (requiresSupervisorEligibilityUpdate && profile) {
+        await saveUserProfile({
+          ...profile,
+          fullName: fullName.trim(),
+          department,
+          staffId: staffId.trim(),
+          updatedAt: new Date().toISOString(),
         })
 
         await dispatch(fetchProfileThunk(activeUser.uid)).unwrap()
@@ -195,6 +224,7 @@ export function CompleteProfilePage() {
             fullName: fullName.trim(),
             department,
             role,
+            staffId: role === 'supervisor' ? staffId.trim() : '',
             assignedSupervisorUid: role === 'student' ? selectedSupervisorUid : '',
             assignedSupervisorName: role === 'student' ? selectedSupervisor?.name || '' : '',
           }),
@@ -215,6 +245,8 @@ export function CompleteProfilePage() {
         <p className="mt-2 text-sm text-slate-600">
           {requiresSupervisorAssignment
             ? 'Select your supervisor to complete your student onboarding.'
+            : requiresSupervisorEligibilityUpdate
+              ? 'Supervisor access is locked until your CU staff ID is added and verified against your institutional email.'
             : 'Select your department and role before continuing to the repository workspace.'}
         </p>
 
@@ -247,7 +279,7 @@ export function CompleteProfilePage() {
             options={roleOptions}
             value={role}
             onChange={(event) => setRole(event.target.value as RegisterPayload['role'])}
-            disabled={requiresSupervisorAssignment}
+            disabled={requiresSupervisorAssignment || requiresSupervisorEligibilityUpdate}
             required
           />
 
@@ -264,6 +296,21 @@ export function CompleteProfilePage() {
               required
               disabled={loadingSupervisors || supervisorOptions.length === 0}
             />
+          ) : null}
+
+          {role === 'supervisor' ? (
+            <div className="space-y-2">
+              <Input
+                label="CU staff ID"
+                value={staffId}
+                onChange={(event) => setStaffId(event.target.value)}
+                placeholder="e.g. CU/STAFF/0421"
+                required
+              />
+              <p className="text-xs text-slate-500">
+                Supervisor mode is limited to <span className="font-semibold">{`@${CU_SUPERVISOR_EMAIL_DOMAIN}`}</span> accounts with a valid CU staff ID.
+              </p>
+            </div>
           ) : null}
 
           {localError ? (

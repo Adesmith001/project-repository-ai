@@ -1,5 +1,6 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
 import type { RegisterPayload, UserProfile } from '../../types'
+import { hasCuStaffId, hasCuSupervisorEmail } from '../../lib/authz'
 import { DEPARTMENTS } from '../../lib/constants'
 import { getUserProfile, saveUserProfile } from './profileService'
 
@@ -27,6 +28,16 @@ export const ensureProfileFromRegisterThunk = createAsyncThunk(
 
     if (isStudent && (!payload.values.assignedSupervisorUid || !payload.values.assignedSupervisorName)) {
       throw new Error('Students must select a supervisor during onboarding.')
+    }
+
+    if (payload.values.role === 'supervisor') {
+      if (!hasCuSupervisorEmail(payload.values.email)) {
+        throw new Error('Only Covenant University staff email addresses can enter supervisor mode.')
+      }
+
+      if (!hasCuStaffId(payload.values.staffId)) {
+        throw new Error('A CU staff ID is required before creating a supervisor profile.')
+      }
     }
 
     const profile: UserProfile = {
@@ -80,6 +91,16 @@ export const ensureProfileForAuthUserThunk = createAsyncThunk(
       && (!payload.assignedSupervisorUid?.trim() || !payload.assignedSupervisorName?.trim())
     ) {
       throw new Error('Students must select a supervisor before continuing.')
+    }
+
+    if (payload.role === 'supervisor') {
+      if (!hasCuSupervisorEmail(payload.email)) {
+        throw new Error('Only Covenant University staff email addresses can enter supervisor mode.')
+      }
+
+      if (!hasCuStaffId(payload.staffId)) {
+        throw new Error('A CU staff ID is required before creating a supervisor profile.')
+      }
     }
 
     const now = new Date().toISOString()

@@ -275,7 +275,12 @@ export async function runTopicCheck(input: TopicCheckInput): Promise<TopicCheckR
   })
 
   const queryEmbedding = await createEmbedding(queryText)
-  const matches = await findSimilarProjects(queryEmbedding, 5)
+  const matches = await findSimilarProjects({
+    embedding: queryEmbedding,
+    title: input.proposedTitle,
+    abstract: input.proposedDescription,
+    keywords: input.optionalKeywords,
+  }, 5)
 
   const highestSimilarity = matches[0]?.similarityScore ?? 0
   const risk = riskFromSimilarity(highestSimilarity)

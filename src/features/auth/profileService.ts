@@ -1,5 +1,6 @@
 import { FirebaseError } from 'firebase/app'
 import { collection, doc, getDoc, getDocs, setDoc, updateDoc } from 'firebase/firestore'
+import { canUseSupervisorMode } from '../../lib/authz'
 import { db } from '../../lib/firebase'
 import type { UserProfile, UserRole } from '../../types'
 
@@ -98,7 +99,7 @@ export async function listUserProfiles() {
 
 export async function listSupervisorProfiles() {
   const users = await listUserProfiles()
-  return users.filter((item) => item.role === 'supervisor')
+  return users.filter((item) => canUseSupervisorMode(item))
 }
 
 export async function setStudentUploadClearance(payload: {
@@ -161,6 +162,19 @@ export async function setUserRole(payload: {
   }
 
   const now = new Date().toISOString()
+
+  if (payload.role === 'supervisor') {
+    const existing = await getUserProfile(payload.userId)
+
+    if (!existing) {
+      throw new Error('The selected user profile no longer exists.')
+    }
+
+    if (!canUseSupervisorMode({ role: 'supervisor', email: existing.email, staffId: existing.staffId })) {
+      throw new Error('Only Covenant University staff accounts with a CU staff ID can be promoted to supervisor.')
+    }
+  }
+
   const writePayload = removeUndefinedFields({
     role: payload.role,
     assignedSupervisorUid: payload.role === 'student' ? undefined : '',

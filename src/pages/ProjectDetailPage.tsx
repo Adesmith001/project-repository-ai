@@ -8,12 +8,14 @@ import { ErrorState } from '../components/states/ErrorState'
 import { LoadingState } from '../components/states/LoadingState'
 import { getProjectById } from '../features/projects/projectService'
 import { useAppSelector } from '../hooks/useAppStore'
+import { getAuthorizedRole } from '../lib/authz'
 import { formatDate } from '../utils/date'
 import type { ProjectRecord } from '../types'
 
 export function ProjectDetailPage() {
   const { id } = useParams()
   const profile = useAppSelector((state) => state.profile.profile)
+  const authorizedRole = getAuthorizedRole(profile)
   const [project, setProject] = useState<ProjectRecord | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -120,7 +122,7 @@ export function ProjectDetailPage() {
         ) : null}
 
         <div className="mt-6 flex flex-wrap gap-2">
-          {profile?.role !== 'student' ? (
+          {authorizedRole !== 'student' ? (
             <a href={project.fileUrl} target="_blank" rel="noreferrer">
               <Button>Open PDF</Button>
             </a>
