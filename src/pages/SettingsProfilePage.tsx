@@ -1,14 +1,111 @@
+import { useEffect, useState } from 'react'
 import { Card } from '../components/ui/Card'
 import { Badge } from '../components/ui/Badge'
+import { Button } from '../components/ui/Button'
+import { Input } from '../components/ui/Input'
 import { SectionHeading } from '../components/ui/SectionHeading'
-import { useAppSelector } from '../hooks/useAppStore'
-import { canUseSupervisorMode, getAuthorizedRole } from '../lib/authz'
+import { requestSupervisorEmailChange } from '../features/auth/authService'
+import { fetchProfileThunk } from '../features/auth/profileSlice'
+import { updateOwnSupervisorProfile } from '../features/auth/profileService'
+import { useAppDispatch, useAppSelector } from '../hooks/useAppStore'
+import { useErrorToast } from '../hooks/useErrorToast'
+import {
+  canUseSupervisorMode,
+  CU_SUPERVISOR_EMAIL_DOMAIN,
+  getAuthorizedRole,
+  getSupervisorEligibilityIssues,
+  hasCuSupervisorEmail,
+} from '../lib/authz'
 import { ShieldCheck, UserRound } from 'lucide-react'
 
 export function SettingsProfilePage() {
+  const dispatch = useAppDispatch()
   const profile = useAppSelector((state) => state.profile.profile)
   const authorizedRole = getAuthorizedRole(profile)
   const supervisorRestricted = Boolean(profile?.role === 'supervisor' && !canUseSupervisorMode(profile))
+  const supervisorIssues = getSupervisorEligibilityIssues(profile)
+  const [staffIdDraft, setStaffIdDraft] = useState(profile?.staffId || '')
+  const [institutionalEmailDraft, setInstitutionalEmailDraft] = useState(profile?.email || '')
+  const [saving, setSaving] = useState(false)
+  const [localError, setLocalError] = useState('')
+  const [info, setInfo] = useState('')
+
+  useErrorToast(localError)
+
+  useEffect(() => {
+    setStaffIdDraft(profile?.staffId || '')
+    setInstitutionalEmailDraft(profile?.email || '')
+  }, [profile?.email, profile?.staffId])
+
+  async function onSubmitSupervisorRecovery(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    if (!profile || profile.role !== 'supervisor') {
+      return
+    }
+
+    const nextStaffId = staffIdDraft.trim()
+    const nextEmail = institutionalEmailDraft.trim().toLowerCase()
+    const currentEmail = profile.email.trim().toLowerCase()
+    const updates: string[] = []
+
+    // --- Client-side validation (catches issues before touching Firestore) ---
+    if (nextStaffId.length > 0 && nextStaffId.length < 2) {
+      setLocalError('CU staff ID must be at least 2 characters.')
+      return
+    }
+
+    if (nextStaffId.length > 64) {
+      setLocalError('CU staff ID must be 64 characters or fewer.')
+      return
+    }
+
+    setSaving(true)
+    setLocalError('')
+    setInfo('')
+
+    try {
+      if (nextEmail !== currentEmail) {
+        if (!hasCuSupervisorEmail(nextEmail)) {
+          throw new Error(`Use a valid @${CU_SUPERVISOR_EMAIL_DOMAIN} email for supervisor recovery.`)
+        }
+
+        await requestSupervisorEmailChange(nextEmail)
+        updates.push('Verification sent to your institutional email. Complete it, then sign in again.')
+      }
+
+      const staffIdChanged = nextStaffId !== (profile.staffId || '').trim()
+
+      if (staffIdChanged) {
+        if (nextStaffId.length < 2) {
+          throw new Error('CU staff ID must be at least 2 characters.')
+        }
+
+        await updateOwnSupervisorProfile({
+          uid: profile.uid,
+          fullName: profile.fullName,
+          department: profile.department,
+          staffId: nextStaffId,
+          photoURL: profile.photoURL,
+        })
+
+        await dispatch(fetchProfileThunk(profile.uid)).unwrap()
+        updates.push('CU staff ID updated.')
+      }
+
+      setInfo(updates.length > 0 ? updates.join(' ') : 'No changes to save.')
+    } catch (submitError) {
+      const message = submitError instanceof Error ? submitError.message : 'Unable to update supervisor recovery details.'
+      // Strip the "deploy firestore.rules" hint from permission errors — the rules
+      // are already up to date; the real cause is always a validation mismatch.
+      const cleaned = message.replace(/\.\s*Deploy the latest firestore\.rules.*$/i, '.')
+      setLocalError(cleaned)
+      setInfo('')
+    } finally {
+      setSaving(false)
+    }
+  }
+
 
   return (
     <div className="space-y-6 py-4">
@@ -95,9 +192,50 @@ export function SettingsProfilePage() {
             <div className="soft-panel border border-amber-200 bg-amber-50 p-4 sm:col-span-2">
               <p className="text-xs uppercase tracking-[0.16em] text-amber-700">Supervisor Access Locked</p>
               <p className="mt-2 text-sm text-amber-900">
-                Add a valid CU staff ID to your profile and use a `@covenantuniversity.edu.ng` account to regain supervisor mode.
+                {supervisorIssues.includes('missing_cu_email') && supervisorIssues.includes('missing_staff_id')
+                  ? `Add your CU staff ID and switch to a verified @${CU_SUPERVISOR_EMAIL_DOMAIN} email to regain supervisor mode.`
+                  : supervisorIssues.includes('missing_cu_email')
+                    ? `Switch to a verified @${CU_SUPERVISOR_EMAIL_DOMAIN} email to regain supervisor mode.`
+                    : 'Add a valid CU staff ID to regain supervisor mode.'}
               </p>
             </div>
+          ) : null}
+          {profile?.role === 'supervisor' ? (
+            <form className="soft-panel p-4 sm:col-span-2 space-y-4" onSubmit={onSubmitSupervisorRecovery}>
+              <div>
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Supervisor Recovery</p>
+                <p className="mt-2 text-sm text-slate-700">
+                  Keep supervisor mode restricted to verified Covenant University identities by updating your institutional email and CU staff ID here.
+                </p>
+              </div>
+
+              <Input
+                label="Institutional email"
+                type="email"
+                value={institutionalEmailDraft}
+                onChange={(event) => setInstitutionalEmailDraft(event.target.value)}
+                placeholder={`name@${CU_SUPERVISOR_EMAIL_DOMAIN}`}
+              />
+
+              <Input
+                label="CU staff ID"
+                value={staffIdDraft}
+                onChange={(event) => setStaffIdDraft(event.target.value)}
+                placeholder="e.g. CU/STAFF/0042"
+              />
+
+              {localError ? (
+                <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{localError}</p>
+              ) : null}
+
+              {info ? (
+                <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">{info}</p>
+              ) : null}
+
+              <Button type="submit" variant="secondary" disabled={saving}>
+                {saving ? 'Saving...' : 'Update supervisor access'}
+              </Button>
+            </form>
           ) : null}
         </div>
       </Card>

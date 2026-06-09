@@ -184,7 +184,7 @@ export function RegisterPage() {
             </Button>
           </form>
 
-          <div className="mt-6 auth-divider">or continue with</div>
+          <div className="mt-6 auth-divider">or use Google if your institution requires it</div>
 
           <div className="mt-4 grid grid-cols-2 gap-3">
             <Button variant="outline" className="w-full" onClick={() => void onGoogleSignup()} disabled={isSubmitting}>

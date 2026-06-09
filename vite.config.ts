@@ -1,13 +1,23 @@
-import { defineConfig } from 'vite'
+/// <reference types="vitest/config" />
+
+import { defineConfig, type PluginOption, type ViteDevServer } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import geminiHandler from './api/gemini'
 
-function geminiDevApiPlugin() {
+type GeminiHandler = typeof import('./api/gemini')['default']
+
+function geminiDevApiPlugin(): PluginOption {
+  let handlerPromise: Promise<GeminiHandler> | null = null
+
   return {
     name: 'gemini-dev-api',
-    configureServer(server: { middlewares: { use: (path: string, handler: (req: any, res: any, next: () => void) => void) => void } }) {
+    configureServer(server: ViteDevServer) {
       server.middlewares.use('/api/gemini', (req, res, next) => {
+        if (req.method === 'OPTIONS') {
+          next()
+          return
+        }
+
         let rawBody = ''
 
         req.on('data', (chunk: Buffer | string) => {
@@ -30,6 +40,7 @@ function geminiDevApiPlugin() {
           }
 
           try {
+            const geminiHandler = await (handlerPromise ??= import('./api/gemini.ts').then((module) => module.default))
             await geminiHandler(
               {
                 method: req.method,
@@ -49,16 +60,17 @@ function geminiDevApiPlugin() {
           res.setHeader('Content-Type', 'application/json')
           res.end(JSON.stringify({ error: 'Invalid request body.' }))
         })
-
-        if (req.method === 'OPTIONS') {
-          next()
-        }
       })
     },
   }
 }
 
 // https://vite.dev/config/
-export default defineConfig({
-  plugins: [react(), tailwindcss(), geminiDevApiPlugin()],
-})
+export default defineConfig(({ command }) => ({
+  plugins: command === 'serve' ? [react(), tailwindcss(), geminiDevApiPlugin()] : [react(), tailwindcss()],
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: ['./src/test/setup.ts'],
+  },
+}))

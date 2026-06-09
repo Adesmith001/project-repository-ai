@@ -31,7 +31,7 @@ const INITIAL_ASSISTANT_CHAT_MESSAGE =
 const CONVERSATION_DELETE_UNDO_WINDOW_MS = 6000
 
 type PendingConversationDelete = {
-  timeoutId: ReturnType<typeof window.setTimeout>
+  timeoutId: number
 }
 
 export function CheckTopicPage() {

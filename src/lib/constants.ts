@@ -25,3 +25,5 @@ export const DEFAULT_PROJECT_FILTERS: ProjectFilters = {
   status: 'all',
   search: '',
 }
+
+export const PROJECT_FILTER_YEAR_FLOOR = 2027

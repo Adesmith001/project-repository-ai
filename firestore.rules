@@ -38,6 +38,10 @@ service cloud.firestore {
           && data.staffId is string
           && data.staffId.size() >= 2
           && data.staffId.size() <= 64
+        )
+        || (
+          ('supervisorOverride' in data)
+          && data.supervisorOverride == true
         );
     }
 
@@ -106,6 +110,11 @@ service cloud.firestore {
     }
 
     function isValidUserProfile(data, userId) {
+      return isValidUserProfileShape(data, userId)
+      && hasSupervisorIdentity(data);
+    }
+
+    function isValidUserProfileShape(data, userId) {
       return data.keys().hasOnly([
         'uid',
         'email',
@@ -114,6 +123,7 @@ service cloud.firestore {
         'department',
         'role',
         'staffId',
+        'supervisorOverride',
         'assignedSupervisorUid',
         'assignedSupervisorName',
         'uploadCleared',
@@ -137,7 +147,7 @@ service cloud.firestore {
       && data.role is string
       && isValidRole(data.role)
       && (!("staffId" in data) || data.staffId is string)
-      && hasSupervisorIdentity(data)
+      && (!("supervisorOverride" in data) || data.supervisorOverride is bool)
       && hasOptionalSupervisorAssignmentShape(data)
       && hasValidSupervisorAssignment(data)
       && (
@@ -151,6 +161,49 @@ service cloud.firestore {
       )
       && data.createdAt is string
       && data.updatedAt is string;
+    }
+
+    function canOwnerRepairSupervisorIdentity(userId) {
+      return isOwner(userId)
+      && resource.data.role == 'supervisor'
+      && request.resource.data.role == 'supervisor'
+      // Only allow changing these specific identity fields.
+      && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+        'email',
+        'fullName',
+        'department',
+        'staffId',
+        'photoURL',
+        'updatedAt'
+      ])
+      // All other fields must stay identical to what's stored.
+      && request.resource.data.uid == resource.data.uid
+      && request.resource.data.role == resource.data.role
+      && request.resource.data.assignedSupervisorUid == resource.data.assignedSupervisorUid
+      && request.resource.data.assignedSupervisorName == resource.data.assignedSupervisorName
+      && request.resource.data.uploadCleared == resource.data.uploadCleared
+      && request.resource.data.createdAt == resource.data.createdAt
+      // Validate the fields that are allowed to change.
+      && request.resource.data.fullName is string
+      && request.resource.data.fullName.size() >= 2
+      && request.resource.data.fullName.size() <= 120
+      && request.resource.data.department is string
+      && request.resource.data.department.size() >= 2
+      && request.resource.data.department.size() <= 120
+      // staffId can be set to any non-empty string (or absent).  The
+      // isSupervisor() gate enforces a *valid* staffId at action time.
+      && (!('staffId' in request.resource.data) || request.resource.data.staffId is string)
+      && request.resource.data.updatedAt is string
+      // Email must either stay the same, or switch to the verified auth-token
+      // email AND must be a CU institutional address.
+      && (
+        request.resource.data.email == resource.data.email
+        || (
+          request.auth.token.email is string
+          && request.resource.data.email == request.auth.token.email
+          && isCuStaffEmail(request.resource.data.email)
+        )
+      );
     }
 
     function canSupervisorUpdateStudentClearance() {
@@ -279,17 +332,32 @@ service cloud.firestore {
       && data.updatedAt is string;
     }
 
-    function canStudentCreateAssignedProject(data) {
+    function canStudentCreateSupervisorRoutedProject(data) {
       return isClearedStudent()
       && data.studentUid is string
       && data.studentUid == request.auth.uid
       && data.supervisorUid is string
       && data.supervisorUid.size() > 0
-      && data.supervisorUid == requesterDoc().data.assignedSupervisorUid
-      && data.supervisor == requesterDoc().data.assignedSupervisorName
+      && supervisorDoc(data.supervisorUid).data != null
+      && supervisorDoc(data.supervisorUid).data.role == 'supervisor'
+      && hasSupervisorIdentity(supervisorDoc(data.supervisorUid).data)
+      && data.supervisor == supervisorDoc(data.supervisorUid).data.fullName
       && data.studentName == requesterDoc().data.fullName
       && data.rejectionReason == ''
       && data.status == 'pending_supervisor';
+    }
+
+    function canStudentCreateAdminRoutedProject(data) {
+      return isClearedStudent()
+      && data.studentUid is string
+      && data.studentUid == request.auth.uid
+      && data.supervisorUid is string
+      && data.supervisorUid == ''
+      && data.supervisor is string
+      && data.supervisor.size() >= 2
+      && data.studentName == requesterDoc().data.fullName
+      && data.rejectionReason == ''
+      && data.status == 'pending_admin';
     }
 
     function isSupervisorAssignedToProject(project) {
@@ -343,6 +411,7 @@ service cloud.firestore {
 
       allow create: if isOwner(userId)
         && isValidUserProfile(request.resource.data, userId)
+        && (!("supervisorOverride" in request.resource.data) || request.resource.data.supervisorOverride == false)
         && hasSupervisorAssignmentShape(request.resource.data)
         && hasClearanceShape(request.resource.data)
         && (
@@ -381,7 +450,8 @@ service cloud.firestore {
         && request.resource.data.clearedBySupervisorName == resource.data.clearedBySupervisorName
         && request.resource.data.clearanceUpdatedAt == resource.data.clearanceUpdatedAt
         && request.resource.data.createdAt == resource.data.createdAt
-      ) || canOwnerSetInitialSupervisorAssignment(userId) || (
+        && request.resource.data.get('supervisorOverride', false) == resource.data.get('supervisorOverride', false)
+      ) || canOwnerRepairSupervisorIdentity(userId) || canOwnerSetInitialSupervisorAssignment(userId) || (
         isAdmin()
         && isValidUserProfile(request.resource.data, userId)
         && request.resource.data.uid == resource.data.uid
@@ -400,7 +470,10 @@ service cloud.firestore {
         (isAdmin() || isSupervisor())
         && isValidProjectRecord(request.resource.data)
       ) || (
-        canStudentCreateAssignedProject(request.resource.data)
+        (
+          canStudentCreateSupervisorRoutedProject(request.resource.data)
+          || canStudentCreateAdminRoutedProject(request.resource.data)
+        )
         && isValidProjectRecord(request.resource.data)
       );
 

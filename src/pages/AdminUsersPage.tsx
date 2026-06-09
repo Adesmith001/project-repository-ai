@@ -6,7 +6,7 @@ import { ErrorState } from '../components/states/ErrorState'
 import { EmptyState } from '../components/states/EmptyState'
 import { SectionHeading } from '../components/ui/SectionHeading'
 import { Badge } from '../components/ui/Badge'
-import { listUserProfiles, setStudentUploadClearance, setUserRole } from '../features/auth/profileService'
+import { listUserProfiles, setStudentUploadClearance, setUserRole, setSupervisorOverride } from '../features/auth/profileService'
 import { createDepartment } from '../features/departments/departmentService'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
@@ -134,6 +134,38 @@ export function AdminUsersPage() {
       )
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : 'Unable to update student clearance.')
+    } finally {
+      setActionUserId(null)
+    }
+  }
+
+  async function onToggleSupervisorOverride(target: UserProfile) {
+    if (!profile || authorizedRole !== 'admin') {
+      return
+    }
+
+    try {
+      setActionUserId(target.uid)
+
+      const nextOverride = !target.supervisorOverride
+      await setSupervisorOverride({
+        userId: target.uid,
+        override: nextOverride,
+      })
+
+      setUsers((prev) =>
+        prev.map((user) =>
+          user.uid === target.uid
+            ? {
+                ...user,
+                supervisorOverride: nextOverride,
+                updatedAt: new Date().toISOString(),
+              }
+            : user,
+        ),
+      )
+    } catch (updateError) {
+      setError(updateError instanceof Error ? updateError.message : 'Unable to update supervisor override.')
     } finally {
       setActionUserId(null)
     }
@@ -444,7 +476,7 @@ export function AdminUsersPage() {
                             <option value="student" disabled={user.role !== 'student'}>Student</option>
                           <option
                             value="supervisor"
-                            disabled={!canUseSupervisorMode({ role: 'supervisor', email: user.email, staffId: user.staffId })}
+                            disabled={!canUseSupervisorMode({ role: 'supervisor', email: user.email, staffId: user.staffId, supervisorOverride: user.supervisorOverride })}
                           >
                             Supervisor
                           </option>
@@ -477,6 +509,15 @@ export function AdminUsersPage() {
                           onClick={() => void onToggleStudentClearance(user)}
                         >
                           {user.uploadCleared ? 'Revoke' : 'Clear'}
+                        </Button>
+                      ) : user.role === 'supervisor' && authorizedRole === 'admin' ? (
+                        <Button
+                          size="sm"
+                          variant={user.supervisorOverride ? 'secondary' : 'outline'}
+                          disabled={actionUserId === user.uid || (canUseSupervisorMode({ role: 'supervisor', email: user.email, staffId: user.staffId, supervisorOverride: false }) && !user.supervisorOverride)}
+                          onClick={() => void onToggleSupervisorOverride(user)}
+                        >
+                          {user.supervisorOverride ? 'Revoke override' : 'Unrevoke'}
                         </Button>
                       ) : (
                         <span className="text-xs text-slate-500">-</span>

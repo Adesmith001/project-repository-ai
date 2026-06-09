@@ -210,9 +210,9 @@ function contentSimilarity(project: ProjectRecord, queryInput: Omit<SimilarProje
   const keywordScore = jaccardSimilarity(projectContent.keywordTokens, queryContent.keywordTokens)
 
   const blendedScore =
-    (titleTokenScore * 0.3)
-    + (titlePhraseScore * 0.2)
-    + (abstractScore * 0.35)
+    (titleTokenScore * 0.4)
+    + (titlePhraseScore * 0.25)
+    + (abstractScore * 0.2)
     + (keywordScore * 0.15)
 
   const normalizedProjectTitle = normalizeText(project.title)
@@ -228,12 +228,22 @@ function contentSimilarity(project: ProjectRecord, queryInput: Omit<SimilarProje
 function combinedSimilarity(project: ProjectRecord, queryInput: SimilarProjectQueryInput) {
   const semanticScore = cosineSimilarity(project.embedding || [], queryInput.embedding)
   const lexicalScore = contentSimilarity(project, queryInput)
+  const normalizedProjectTitle = normalizeText(project.title)
+  const normalizedQueryTitle = normalizeText(queryInput.title)
+
+  if (normalizedProjectTitle && normalizedProjectTitle === normalizedQueryTitle) {
+    return Math.max(0.99, lexicalScore)
+  }
 
   if (queryInput.embedding.length === 0 || (project.embedding || []).length === 0) {
     return lexicalScore
   }
 
-  return (semanticScore * 0.58) + (lexicalScore * 0.42)
+  return (semanticScore * 0.4) + (lexicalScore * 0.6)
+}
+
+export function scoreProjectSimilarity(project: ProjectRecord, queryInput: SimilarProjectQueryInput) {
+  return combinedSimilarity(project, queryInput)
 }
 
 function rankBySimilarity(projects: ProjectRecord[], queryInput: SimilarProjectQueryInput, topK: number) {

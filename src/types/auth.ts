@@ -15,6 +15,7 @@ export interface UserProfile {
   department: string
   role: UserRole
   staffId?: string
+  supervisorOverride?: boolean
   assignedSupervisorUid: string
   assignedSupervisorName: string
   uploadCleared: boolean

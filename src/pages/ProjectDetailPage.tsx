@@ -7,6 +7,7 @@ import { EmptyState } from '../components/states/EmptyState'
 import { ErrorState } from '../components/states/ErrorState'
 import { LoadingState } from '../components/states/LoadingState'
 import { getProjectById } from '../features/projects/projectService'
+import { downloadProjectPdf } from '../features/projects/projectDownloadService'
 import { useAppSelector } from '../hooks/useAppStore'
 import { getAuthorizedRole } from '../lib/authz'
 import { formatDate } from '../utils/date'
@@ -123,9 +124,17 @@ export function ProjectDetailPage() {
 
         <div className="mt-6 flex flex-wrap gap-2">
           {authorizedRole !== 'student' ? (
-            <a href={project.fileUrl} target="_blank" rel="noreferrer">
-              <Button>Open PDF</Button>
-            </a>
+            <>
+              <a href={project.fileUrl} target="_blank" rel="noreferrer">
+                <Button>Open PDF</Button>
+              </a>
+              <Button
+                variant="secondary"
+                onClick={() => void downloadProjectPdf({ title: project.title, fileUrl: project.fileUrl })}
+              >
+                Download PDF
+              </Button>
+            </>
           ) : null}
           <Link to="/projects">
             <Button variant="secondary">Back to repository</Button>

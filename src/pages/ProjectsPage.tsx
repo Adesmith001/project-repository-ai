@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { FolderKanban, SlidersHorizontal, Sparkles } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
@@ -16,7 +16,9 @@ import { useAppDispatch, useAppSelector } from '../hooks/useAppStore'
 import { useDepartments } from '../hooks/useDepartments'
 import { useErrorToast } from '../hooks/useErrorToast'
 import { canUseSupervisorMode, getAuthorizedRole } from '../lib/authz'
+import { findProjectDuplicates } from '../features/projects/duplicateService'
 import { removeProject, listProjects, updateProjectStatus } from '../features/projects/projectService'
+import { getProjectYearFilterOptions, getSupervisorFilterOptions } from '../features/projects/projectService'
 import { resetProjectFilters, setProjectFilter } from '../features/projects/projectFilterSlice'
 import { formatDate } from '../utils/date'
 import { AREAS } from '../lib/constants'
@@ -37,8 +39,33 @@ export function ProjectsPage() {
   const [rejectingProject, setRejectingProject] = useState<ProjectRecord | null>(null)
   const [rejectionReasonDraft, setRejectionReasonDraft] = useState('')
   const [rejectionError, setRejectionError] = useState('')
+  const [searchParams] = useSearchParams()
 
   useErrorToast(rejectionError)
+
+  useEffect(() => {
+    const urlFilters = {
+      search: searchParams.get('search'),
+      department: searchParams.get('department'),
+      area: searchParams.get('area'),
+      year: searchParams.get('year'),
+      supervisor: searchParams.get('supervisor'),
+      status: searchParams.get('status'),
+    } as const
+
+    for (const [key, value] of Object.entries(urlFilters)) {
+      if (!value || filters[key as keyof typeof urlFilters] === value) {
+        continue
+      }
+
+      dispatch(
+        setProjectFilter({
+          key: key as keyof typeof urlFilters,
+          value,
+        }),
+      )
+    }
+  }, [dispatch, filters, searchParams])
 
   useEffect(() => {
     let mounted = true
@@ -162,18 +189,11 @@ export function ProjectsPage() {
   }
 
   const supervisorOptions = useMemo(() => {
-    const uniqueSupervisors = Array.from(new Set(allProjects.map((item) => item.supervisor)))
-    return [{ value: 'all', label: 'All Supervisors' }, ...uniqueSupervisors.map((item) => ({ value: item, label: item }))]
+    return getSupervisorFilterOptions(allProjects)
   }, [allProjects])
 
-  const yearOptions = [
-    { value: 'all', label: 'All Years' },
-    { value: '2024', label: '2024' },
-    { value: '2023', label: '2023' },
-    { value: '2022', label: '2022' },
-    { value: '2021', label: '2021' },
-    { value: '2020', label: '2020' },
-  ]
+  const yearOptions = useMemo(() => getProjectYearFilterOptions(allProjects), [allProjects])
+  const duplicateSummary = useMemo(() => findProjectDuplicates(allProjects), [allProjects])
 
   const statusMeta: Record<ProjectRecord['status'], { tone: 'success' | 'warning' | 'default'; label: string }> = {
     approved: { tone: 'success', label: 'Approved' },
@@ -264,7 +284,7 @@ export function ProjectsPage() {
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
           <Input
             label="Search"
-            placeholder="Title, abstract, keyword"
+            placeholder="Title, abstract, keyword, supervisor, student"
             value={filters.search}
             onChange={(event) =>
               dispatch(
@@ -327,6 +347,53 @@ export function ProjectsPage() {
 
       {loading ? <LoadingState /> : null}
       {error ? <ErrorState message={error} /> : null}
+
+      {!loading && !error && authorizedRole === 'admin' ? (
+        <Card className="p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-extrabold text-slate-950">Duplicate inspection</h3>
+              <p className="mt-1 text-sm text-slate-500">Review exact-title duplicates and high-confidence near duplicates before deleting records.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Badge>{duplicateSummary.exactTitleGroups.length} exact-title groups</Badge>
+              <Badge>{duplicateSummary.nearDuplicatePairs.length} near-duplicate pairs</Badge>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div className="soft-panel p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Exact Title Matches</p>
+              <div className="mt-3 space-y-3">
+                {duplicateSummary.exactTitleGroups.length > 0 ? duplicateSummary.exactTitleGroups.slice(0, 5).map((group) => (
+                  <div key={group.normalizedTitle} className="rounded-xl border border-slate-200 bg-white p-3">
+                    <p className="text-sm font-semibold text-slate-900">{group.projects[0]?.title || 'Untitled group'}</p>
+                    <p className="mt-1 text-xs text-slate-500">{group.projects.length} records share this normalized title.</p>
+                  </div>
+                )) : (
+                  <p className="text-sm text-slate-500">No exact-title duplicates detected in the current repository set.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="soft-panel p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Near-Duplicate Suggestions</p>
+              <div className="mt-3 space-y-3">
+                {duplicateSummary.nearDuplicatePairs.length > 0 ? duplicateSummary.nearDuplicatePairs.slice(0, 5).map((pair) => (
+                  <div key={`${pair.left.id}-${pair.right.id}`} className="rounded-xl border border-slate-200 bg-white p-3">
+                    <p className="text-sm font-semibold text-slate-900">{pair.left.title}</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Similar to "{pair.right.title}" at {(pair.similarityScore * 100).toFixed(1)}%.
+                    </p>
+                  </div>
+                )) : (
+                  <p className="text-sm text-slate-500">No high-confidence near duplicates detected in the current repository set.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </Card>
+      ) : null}
 
       {!loading && !error && projects.length === 0 ? (
         <EmptyState

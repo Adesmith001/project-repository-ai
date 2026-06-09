@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, Globe } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
+import { requestPasswordReset } from '../features/auth/authService'
 import { useAppDispatch, useAppSelector } from '../hooks/useAppStore'
 import { useErrorToast } from '../hooks/useErrorToast'
 import { googleLoginThunk, loginThunk } from '../features/auth/authSlice'
@@ -17,7 +18,9 @@ export function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [localError, setLocalError] = useState('')
+  const [resetInfo, setResetInfo] = useState('')
   const [rememberMe, setRememberMe] = useState(true)
+  const [resettingPassword, setResettingPassword] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
   useErrorToast(localError || error)
@@ -46,6 +49,27 @@ export function LoginPage() {
       navigate(existingProfile ? '/dashboard' : '/complete-profile', { replace: true })
     } catch (submitError) {
       setLocalError(submitError instanceof Error ? submitError.message : 'Unable to sign in with Google.')
+    }
+  }
+
+  async function onForgotPassword() {
+    if (!email.trim()) {
+      setLocalError('Enter your email first, then use forgot password.')
+      setResetInfo('')
+      return
+    }
+
+    try {
+      setResettingPassword(true)
+      setLocalError('')
+      setResetInfo('')
+      await requestPasswordReset(email)
+      setResetInfo('Password reset email sent. Check your inbox and spam folder.')
+    } catch (submitError) {
+      setLocalError(submitError instanceof Error ? submitError.message : 'Unable to send reset email.')
+      setResetInfo('')
+    } finally {
+      setResettingPassword(false)
     }
   }
 
@@ -128,10 +152,21 @@ export function LoginPage() {
                 />
                 Remember me
               </label>
-              <a href="#" className="font-medium text-slate-500 hover:text-slate-800">
-                Forgot password?
-              </a>
+              <button
+                type="button"
+                className="font-medium text-slate-500 hover:text-slate-800"
+                onClick={() => void onForgotPassword()}
+                disabled={resettingPassword}
+              >
+                {resettingPassword ? 'Sending...' : 'Forgot password?'}
+              </button>
             </div>
+
+            {resetInfo ? (
+              <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+                {resetInfo}
+              </p>
+            ) : null}
 
             {localError || error ? (
               <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
@@ -144,7 +179,7 @@ export function LoginPage() {
             </Button>
           </form>
 
-          <div className="mt-6 auth-divider">or continue with</div>
+          <div className="mt-6 auth-divider">or continue with Google if your institution requires it</div>
 
           <div className="mt-4 grid grid-cols-2 gap-3">
             <Button

@@ -12,6 +12,7 @@ import {
 import { canUseSupervisorMode } from '../../lib/authz'
 import { createEmbedding } from '../../lib/gemini'
 import { db } from '../../lib/firebase'
+import { PROJECT_FILTER_YEAR_FLOOR } from '../../lib/constants'
 import type { ProjectFilters, ProjectInput, ProjectRecord, UserProfile } from '../../types'
 
 function normalizeProjectRecord(projectId: string, data: Partial<ProjectRecord>): ProjectRecord {
@@ -53,7 +54,26 @@ function getProjectsCollection() {
   return collection(db, 'projects')
 }
 
-function applyClientFilters(projects: ProjectRecord[], filters?: Partial<ProjectFilters>) {
+function normalizeSearchValue(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+}
+
+function normalizeDisplayLabel(value: string) {
+  return value.trim().replace(/\s+/g, ' ')
+}
+
+export function normalizeSupervisorName(value: string) {
+  return normalizeSearchValue(value)
+}
+
+function isPendingStatus(status: string) {
+  return status.startsWith('pending')
+}
+
+export function filterProjects(projects: ProjectRecord[], filters?: Partial<ProjectFilters>) {
   if (!filters) {
     return projects
   }
@@ -69,19 +89,74 @@ function applyClientFilters(projects: ProjectRecord[], filters?: Partial<Project
       !filters.year || filters.year === 'all' || String(project.year) === String(filters.year)
 
     const bySupervisor =
-      !filters.supervisor || filters.supervisor === 'all' || project.supervisor === filters.supervisor
+      !filters.supervisor
+      || filters.supervisor === 'all'
+      || normalizeSupervisorName(project.supervisor) === normalizeSupervisorName(filters.supervisor)
 
-    const byStatus = !filters.status || filters.status === 'all' || project.status === filters.status
+    const byStatus =
+      !filters.status
+      || filters.status === 'all'
+      || (filters.status === 'pending' ? isPendingStatus(project.status) : project.status === filters.status)
 
-    const searchValue = filters.search?.toLowerCase().trim() || ''
+    const searchValue = normalizeSearchValue(filters.search || '')
+    const searchableFields = [
+      project.title,
+      project.abstract,
+      project.studentName,
+      project.supervisor,
+      project.department,
+      project.area,
+      ...project.keywords,
+    ]
     const bySearch =
       searchValue.length === 0 ||
-      project.title.toLowerCase().includes(searchValue) ||
-      project.abstract.toLowerCase().includes(searchValue) ||
-      project.keywords.some((item) => item.toLowerCase().includes(searchValue))
+      searchableFields.some((field) => normalizeSearchValue(field).includes(searchValue))
 
     return byDepartment && byArea && byYear && bySupervisor && byStatus && bySearch
   })
+}
+
+export function getProjectYearFilterOptions(
+  projects: ProjectRecord[],
+  currentYear = new Date().getFullYear(),
+) {
+  const upperYear = Math.max(
+    PROJECT_FILTER_YEAR_FLOOR,
+    currentYear,
+    ...projects.map((project) => project.year),
+  )
+  const lowerYear = Math.min(...projects.map((project) => project.year), upperYear)
+  const yearOptions = [{ value: 'all', label: 'All Years' }]
+
+  for (let year = upperYear; year >= lowerYear; year -= 1) {
+    yearOptions.push({
+      value: String(year),
+      label: String(year),
+    })
+  }
+
+  return yearOptions
+}
+
+export function getSupervisorFilterOptions(projects: ProjectRecord[]) {
+  const supervisorMap = new Map<string, string>()
+
+  for (const project of projects) {
+    const normalized = normalizeSupervisorName(project.supervisor)
+
+    if (!normalized || supervisorMap.has(normalized)) {
+      continue
+    }
+
+    supervisorMap.set(normalized, normalizeDisplayLabel(project.supervisor))
+  }
+
+  return [
+    { value: 'all', label: 'All Supervisors' },
+    ...Array.from(supervisorMap.entries())
+      .sort((first, second) => first[1].localeCompare(second[1]))
+      .map(([value, label]) => ({ value, label })),
+  ]
 }
 
 export async function listProjects(filters?: Partial<ProjectFilters>) {
@@ -95,12 +170,8 @@ export async function listProjects(filters?: Partial<ProjectFilters>) {
     clauses.push(where('area', '==', filters.area))
   }
 
-  if (filters?.status && filters.status !== 'all') {
+  if (filters?.status && filters.status !== 'all' && filters.status !== 'pending') {
     clauses.push(where('status', '==', filters.status))
-  }
-
-  if (filters?.supervisor && filters.supervisor !== 'all') {
-    clauses.push(where('supervisor', '==', filters.supervisor))
   }
 
   if (filters?.year && filters.year !== 'all') {
@@ -114,7 +185,7 @@ export async function listProjects(filters?: Partial<ProjectFilters>) {
     return normalizeProjectRecord(snapshotDoc.id, snapshotDoc.data() as Partial<ProjectRecord>)
   })
 
-  return applyClientFilters(projects, filters)
+  return filterProjects(projects, filters)
 }
 
 export async function getProjectById(projectId: string) {

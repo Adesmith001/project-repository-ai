@@ -48,3 +48,19 @@ export interface ProjectFilters {
   status: string
   search: string
 }
+
+export interface ProjectFilterOption {
+  value: string
+  label: string
+}
+
+export interface ProjectDuplicateGroup {
+  normalizedTitle: string
+  projects: ProjectRecord[]
+}
+
+export interface ProjectDuplicateSuggestion {
+  left: ProjectRecord
+  right: ProjectRecord
+  similarityScore: number
+}

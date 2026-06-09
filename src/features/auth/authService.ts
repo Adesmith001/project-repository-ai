@@ -2,13 +2,16 @@ import {
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
   onAuthStateChanged,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
   updateProfile,
+  verifyBeforeUpdateEmail,
 } from 'firebase/auth'
 import type { AppAuthUser, LoginPayload, RegisterPayload } from '../../types'
 import { auth } from '../../lib/firebase'
+import { toUserFacingAuthError } from './authError'
 
 function mapAuthUser(payload: {
   uid: string
@@ -49,8 +52,12 @@ export async function login(payload: LoginPayload) {
     throw new Error('Firebase Auth is not configured.')
   }
 
-  const response = await signInWithEmailAndPassword(auth, payload.email, payload.password)
-  return mapAuthUser(response.user)
+  try {
+    const response = await signInWithEmailAndPassword(auth, payload.email, payload.password)
+    return mapAuthUser(response.user)
+  } catch (error) {
+    throw new Error(toUserFacingAuthError(error as { code?: string; message?: string }, 'Unable to login.'))
+  }
 }
 
 export async function register(payload: RegisterPayload) {
@@ -58,15 +65,19 @@ export async function register(payload: RegisterPayload) {
     throw new Error('Firebase Auth is not configured.')
   }
 
-  const response = await createUserWithEmailAndPassword(auth, payload.email, payload.password)
+  try {
+    const response = await createUserWithEmailAndPassword(auth, payload.email, payload.password)
 
-  const trimmedName = payload.fullName.trim()
+    const trimmedName = payload.fullName.trim()
 
-  if (trimmedName.length > 0) {
-    await updateProfile(response.user, { displayName: trimmedName })
+    if (trimmedName.length > 0) {
+      await updateProfile(response.user, { displayName: trimmedName })
+    }
+
+    return mapAuthUser(response.user)
+  } catch (error) {
+    throw new Error(toUserFacingAuthError(error as { code?: string; message?: string }, 'Unable to register.'))
   }
-
-  return mapAuthUser(response.user)
 }
 
 export async function loginWithGoogle() {
@@ -77,8 +88,14 @@ export async function loginWithGoogle() {
   const provider = new GoogleAuthProvider()
   provider.setCustomParameters({ prompt: 'select_account' })
 
-  const response = await signInWithPopup(auth, provider)
-  return mapAuthUser(response.user)
+  try {
+    const response = await signInWithPopup(auth, provider)
+    return mapAuthUser(response.user)
+  } catch (error) {
+    throw new Error(
+      toUserFacingAuthError(error as { code?: string; message?: string }, 'Unable to sign in with Google.'),
+    )
+  }
 }
 
 export async function logout() {
@@ -87,4 +104,30 @@ export async function logout() {
   }
 
   await signOut(auth)
+}
+
+export async function requestPasswordReset(email: string) {
+  if (!auth) {
+    throw new Error('Firebase Auth is not configured.')
+  }
+
+  try {
+    await sendPasswordResetEmail(auth, email)
+  } catch (error) {
+    throw new Error(toUserFacingAuthError(error as { code?: string; message?: string }, 'Unable to send reset email.'))
+  }
+}
+
+export async function requestSupervisorEmailChange(nextEmail: string) {
+  if (!auth?.currentUser) {
+    throw new Error('Sign in again before updating your institutional email.')
+  }
+
+  try {
+    await verifyBeforeUpdateEmail(auth.currentUser, nextEmail)
+  } catch (error) {
+    throw new Error(
+      toUserFacingAuthError(error as { code?: string; message?: string }, 'Unable to start institutional email update.'),
+    )
+  }
 }

@@ -11,6 +11,8 @@ import { SectionHeading } from '../components/ui/SectionHeading'
 import { AREAS, DEFAULT_DEPARTMENT } from '../lib/constants'
 import { uploadPdfToCloudinary } from '../lib/cloudinary'
 import { extractProjectMetadataFromPdf } from '../features/projects/documentExtractionService'
+import { listSupervisorProfiles } from '../features/auth/profileService'
+import { buildSupervisorSuggestions, resolveSupervisorRouting, type SupervisorSuggestion } from '../features/auth/supervisorLookupService'
 import { createProject, getProjectById, updateProject } from '../features/projects/projectService'
 import { useAppSelector } from '../hooks/useAppStore'
 import { useErrorToast } from '../hooks/useErrorToast'
@@ -60,6 +62,7 @@ export function UploadProjectPage() {
   const [error, setError] = useState('')
   const [extractionMessage, setExtractionMessage] = useState('')
   const [extractingMetadata, setExtractingMetadata] = useState(false)
+  const [supervisorSuggestions, setSupervisorSuggestions] = useState<SupervisorSuggestion[]>([])
 
   useErrorToast(error)
 
@@ -131,6 +134,30 @@ export function UploadProjectPage() {
   }, [departments])
 
   useEffect(() => {
+    let mounted = true
+
+    async function loadSupervisorSuggestions() {
+      try {
+        const supervisors = await listSupervisorProfiles()
+
+        if (mounted) {
+          setSupervisorSuggestions(buildSupervisorSuggestions(supervisors))
+        }
+      } catch {
+        if (mounted) {
+          setSupervisorSuggestions([])
+        }
+      }
+    }
+
+    void loadSupervisorSuggestions()
+
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  useEffect(() => {
     if (!profile?.fullName) {
       return
     }
@@ -153,10 +180,7 @@ export function UploadProjectPage() {
 
     setForm((prev) => {
       if (authorizedRole === 'student') {
-        if (
-          prev.supervisorUid === profile.assignedSupervisorUid
-          && prev.supervisor === profile.assignedSupervisorName
-        ) {
+        if (prev.supervisor.trim() || prev.supervisorUid.trim()) {
           return prev
         }
 
@@ -238,10 +262,6 @@ export function UploadProjectPage() {
         throw new Error('You can upload only after your supervisor/admin clears you.')
       }
 
-      if (authorizedRole === 'student' && !profile?.assignedSupervisorUid.trim()) {
-        throw new Error('Complete onboarding by selecting a supervisor before uploading.')
-      }
-
       const keywords = parseKeywordInput(keywordText)
       const payload: ProjectInput = {
         ...form,
@@ -249,11 +269,12 @@ export function UploadProjectPage() {
       }
 
       if (authorizedRole === 'student' && profile) {
+        const routing = resolveSupervisorRouting(payload.supervisor, supervisorSuggestions)
         payload.studentName = profile.fullName || payload.studentName
         payload.studentUid = profile.uid
-        payload.supervisorUid = profile.assignedSupervisorUid
-        payload.supervisor = profile.assignedSupervisorName
-        payload.status = 'pending_supervisor'
+        payload.supervisorUid = routing.supervisorUid
+        payload.supervisor = routing.supervisor
+        payload.status = routing.status
         payload.rejectionReason = ''
       }
 
@@ -272,10 +293,6 @@ export function UploadProjectPage() {
 
       if (!payload.supervisor.trim()) {
         throw new Error('Enter a supervisor name before saving this project.')
-      }
-
-      if (authorizedRole === 'student' && !payload.supervisorUid.trim()) {
-        throw new Error('A valid assigned supervisor is required before saving this project.')
       }
 
       if (authorizedRole === 'student' && !payload.studentUid.trim()) {
@@ -333,12 +350,6 @@ export function UploadProjectPage() {
       {authorizedRole === 'student' && !profile?.uploadCleared ? (
         <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           You are currently pending supervisor/admin clearance. Upload is enabled once you are cleared.
-        </p>
-      ) : null}
-
-      {authorizedRole === 'student' && !profile?.assignedSupervisorUid ? (
-        <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          No supervisor is assigned to your profile yet. Complete onboarding before uploading a project.
         </p>
       ) : null}
 
@@ -405,8 +416,15 @@ export function UploadProjectPage() {
               {authorizedRole === 'student' ? (
                 <Input
                   label="Supervisor"
-                  value={profile?.assignedSupervisorName || form.supervisor}
-                  disabled
+                  value={form.supervisor}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      supervisor: event.target.value,
+                    }))
+                  }
+                  list="student-supervisor-suggestions"
+                  placeholder="Type supervisor name"
                   required
                 />
               ) : authorizedRole === 'supervisor' ? (
@@ -431,6 +449,22 @@ export function UploadProjectPage() {
                   required
                 />
               )}
+
+              {authorizedRole === 'student' ? (
+                <datalist id="student-supervisor-suggestions">
+                  {supervisorSuggestions.map((suggestion) => (
+                    <option key={suggestion.uid} value={suggestion.name} />
+                  ))}
+                </datalist>
+              ) : null}
+
+              {authorizedRole === 'student' && form.supervisor.trim() ? (
+                <p className="md:col-span-2 text-xs text-slate-500">
+                  {resolveSupervisorRouting(form.supervisor, supervisorSuggestions).status === 'pending_supervisor'
+                    ? 'Matched supervisor account found. This upload will go to supervisor review first.'
+                    : 'No matching supervisor account found. This upload will go directly to admin review.'}
+                </p>
+              ) : null}
 
               <Input
                 label="Year"
@@ -552,7 +586,6 @@ export function UploadProjectPage() {
               disabled={
                 loading
                 || (authorizedRole === 'student' && !profile?.uploadCleared)
-                || (authorizedRole === 'student' && !profile?.assignedSupervisorUid)
               }
             >
               {loading ? 'Saving...' : editingId ? 'Update project' : 'Create project'}

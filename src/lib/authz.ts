@@ -2,7 +2,8 @@ import type { UserProfile, UserRole } from '../types'
 
 export const CU_SUPERVISOR_EMAIL_DOMAIN = 'covenantuniversity.edu.ng'
 
-type SupervisorIdentity = Pick<UserProfile, 'role' | 'email' | 'staffId'>
+type SupervisorIdentity = Pick<UserProfile, 'role' | 'email' | 'staffId'> & Partial<Pick<UserProfile, 'supervisorOverride'>>
+export type SupervisorEligibilityIssue = 'missing_cu_email' | 'missing_staff_id'
 
 function normalizeEmail(value: string) {
   return value.trim().toLowerCase()
@@ -21,9 +22,29 @@ export function canUseSupervisorMode(profile: SupervisorIdentity | null | undefi
   return Boolean(
     profile
       && profile.role === 'supervisor'
-      && hasCuSupervisorEmail(profile.email)
-      && hasCuStaffId(profile.staffId),
+      && (
+        (hasCuSupervisorEmail(profile.email) && hasCuStaffId(profile.staffId))
+        || profile.supervisorOverride
+      ),
   )
+}
+
+export function getSupervisorEligibilityIssues(profile: SupervisorIdentity | null | undefined) {
+  if (!profile || profile.role !== 'supervisor') {
+    return [] as SupervisorEligibilityIssue[]
+  }
+
+  const issues: SupervisorEligibilityIssue[] = []
+
+  if (!hasCuSupervisorEmail(profile.email)) {
+    issues.push('missing_cu_email')
+  }
+
+  if (!hasCuStaffId(profile.staffId)) {
+    issues.push('missing_staff_id')
+  }
+
+  return issues
 }
 
 export function getAuthorizedRole(profile: SupervisorIdentity | null | undefined): UserRole {
